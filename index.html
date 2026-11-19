@@ -72,7 +72,7 @@ thead th { font-size: 0.78rem; font-weight: 500; color: var(--muted); border-bot
 tbody tr:last-child td { border-bottom: 0; }
 td.num, th.num { text-align: right; font-family: var(--font-mono); font-size: 0.84rem; white-space: nowrap; }
 td.name { font-weight: 600; white-space: nowrap; }
-table.r3 th:last-child, table.r3 td:last-child { min-width: 13rem; }
+table.r3 th:last-child, table.r3 td:last-child { min-width: 13rem; } table.r3 td:nth-child(2) { white-space: nowrap; }
 .tier { font-size: 0.98rem; color: var(--ink2); margin-top: 0.5rem; }
 .tag { display: inline-block; margin-left: 0.4rem; padding: 0 0.45rem; border-radius: 4px; font-size: 0.72rem; font-weight: 500; line-height: 1.65; white-space: nowrap; vertical-align: 1px; }
 .tag.ok { background: var(--good-soft); color: var(--good); } .tag.mid { background: var(--warn-soft); color: var(--warn); }
@@ -149,13 +149,13 @@ details > :not(summary) { margin-bottom: 0.9rem; }
 <div class="wrap">
 
 <header class="top">
-  <p class="eyebrow">阶段汇总 · 截至 2026-11-19 · 三轮均已完成</p>
+  <p class="eyebrow">阶段汇总 · 截至 2026-11-19 · 三轮均已完成，第三轮已按主口径重分析</p>
   <h1>多模态遗忘评测：做了什么，现在知道什么</h1>
   <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物），一个数据划分、一个随机种子。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。</p>
   <div class="rail">
     <div class="stop"><span class="n">第一轮</span><span class="t">四组重学对照</span><span class="pill done">已完成</span><span class="d">用无关数据微调，恢复得和用真实标签差不多。但这种微调代价很大。</span></div>
     <div class="stop"><span class="n">第二轮</span><span class="t">推理路径审计</span><span class="pill done">已完成</span><span class="d">让模型先写推理不会多暴露知识。换一种问法会。</span></div>
-    <div class="stop"><span class="n">第三轮</span><span class="t">utility 约束下的恢复</span><span class="pill done">已完成</span><span class="d">只约束被攻击模型自己的 utility 时，三个方法显著高于 Oracle。要求同一更新对 Full 和 Oracle 也无损时，只剩 IDK 的拒答坍塌和 NPO。</span></div>
+    <div class="stop"><span class="n">第三轮</span><span class="t">utility 约束下的恢复</span><span class="pill done">已完成</span><span class="d">按主口径（同一个更新对遗忘模型、Full、Oracle 都不超预算），只剩 IDK 的拒答闸门坍塌和 NPO 的更新后残留。GA-Diff ep2 和 KL-Min 的恢复只在只看自身 utility 时成立。</span></div>
   </div>
 </header>
 
@@ -171,24 +171,27 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <li><span>5</span><span><b>让模型先写一段推理，不会多暴露知识。</b>写完三段 rationale 后没有任何模型的准确率上升（Full −0.24*，IDK −0.21*），rationale 里写的身份对属性答案影响很小。在这个模型上，用 CoT 审计遗忘不如似然读数灵敏。<span class="tag ok">第二轮</span></span></li>
     <li><span>6</span><span><b>属性知识绑定在人脸图像上，不经由姓名。</b>不给图像时所有模型都回到 Oracle 的水平；直接告诉模型正确姓名也只有 0.22–0.33（Oracle 0.26），在训练过的 retain 人物上同样如此。<span class="tag ok">第二轮</span></span></li>
   </ul>
-  <h3 class="tier">取决于 utility 怎么定义的结论</h3>
+  <h3 class="tier">第三轮：按主口径重分析（同一个更新对遗忘模型、Full、Oracle 都不超预算）</h3>
   <ul class="key">
-    <li><span>7</span><div><b>无关数据上的更新能否在 utility 约束下重新暴露知识，取决于约束谁的 utility。</b><span class="tag mid">第三轮；严格口径是事后分析</span>
+    <li><span>7</span><span><b>只有 IDK 通过 release gate，其余遗忘模型在任何更新之前就已受损。</b>以 5 个点为容差，NPO、GA-Diff ep2、KL-Min 的 retain 准确率在更新之前就比 Full 低 13、29、26 个点；GA-Diff ep10 对遗忘题的回答 100% 是乱码，判为 collapsed。<span class="tag ok">第三轮重分析</span></span></li>
+    <li><span>8</span><div><b>按主口径，只剩 IDK 的拒答闸门坍塌和 NPO 的更新后残留。</b><span class="tag mid">主口径是解封后才定的，不是盲测确认</span>
       <ul>
-        <li>只约束被攻击模型自己（任务书的定义）：GA-Diff ep2 和 KL-Min 在 2 个点预算内就显著高于同更新的 Oracle（+0.19*、+0.20*），NPO 在 10 个点预算内（+0.17*）。</li>
-        <li>要求同一更新对 Full 和 Oracle 也不超预算：NPO 仍然成立（+0.15*）；GA-Diff ep2 只剩边缘信号（+0.11*，由更新带来的部分不显著）；KL-Min 没有恢复（−0.02）。</li>
-        <li>原因是 GA-Diff ep2 和 KL-Min 的 retain 起点本来就低（0.69 和 0.72），给它们选出的 lr 1e-4 更新几乎不伤它们自己，却让 Full 和 Oracle 掉 10 到 26 个点。</li>
+        <li>IDK：在 5 和 10 个点预算下，同一个更新（lr 1e-4 × 5 步）打开了拒答闸门，见第 2 条。十选一的残留在更新之前就在，由更新带来的部分约为 0。</li>
+        <li>NPO：在 10 个点预算下高出同更新的 Oracle +0.15*，Holm 校正后仍显著，15 人中 13 人为正。但由更新带来的部分（UID +0.10*）在 Holm 校正后不显著，所以不能确定是更新造成的。</li>
+        <li>GA-Diff ep2 只剩未校正的 +0.11*（5 和 10 个点），KL-Min 是 −0.02，都没有检测到恢复。</li>
       </ul></div></li>
-    <li><span>8</span><span><b>不存在对所有方法都有效的"通用良性更新"。</b>对五个方法都可行的更新基本是空操作；去掉 GA-Diff ep10 后，最好的通用更新能让三个方法同时显著，但它让 Full 和 Oracle 掉 10 到 11 个点。<span class="tag mid">第三轮</span></span></li>
+    <li><span>9</span><span><b>GA-Diff ep2 和 KL-Min 的恢复只在"只看被攻击模型自己的 utility"时成立。</b>按这个补充口径，两者在 2 个点预算内就高出同更新的 Oracle +0.19* 和 +0.20*，由更新带来的部分也在 Holm 校正后显著。但那些更新让 Full 和 Oracle 的 retain 掉 10 到 26 个点；它们自己几乎不掉，是因为起点本来就低。<span class="tag mid">补充口径，也是事先登记的盲测分析</span></span></li>
+    <li><span>10</span><span><b>不存在对所有方法都有效的"通用良性更新"。</b>对五个方法都可行的更新基本是空操作；去掉 GA-Diff ep10 后，最好的通用更新能让三个方法同时显著，但它让 Full 和 Oracle 掉 10 到 11 个点。<span class="tag mid">第三轮</span></span></li>
   </ul>
   <h3 class="tier">对论文的含义（我的建议，待你确认）</h3>
   <ul class="col">
     <li><b>以 Oracle 为锚的评测是方法上的核心：</b>同一读法、同一更新也施加在 Oracle 上，才能把残留知识和读法或更新本身的效应分开。</li>
-    <li><b>拒答式遗忘（IDK）只改了输出行为：</b>知识完整保留，闸门在很小的良性更新下就会打开。适合作为反例报告。</li>
-    <li><b>评测"良性更新后的恢复"时，要同时报告同一更新对 Full 和 Oracle 的 utility 代价。</b>只看被攻击模型自己的 utility，会把对健康模型有破坏性的更新当成良性更新。</li>
+    <li><b>utility 约束要对三个模型同时成立，而且要先过 release gate。</b>只看被攻击模型自己的 utility，会把对健康模型有破坏性的更新当成良性更新；在 release 时就已受损的模型，它的"恢复"要单独标注。</li>
+    <li><b>拒答式遗忘（IDK）只改了输出行为：</b>知识完整保留，闸门在一个对三个模型都很小的良性更新下就会打开。适合作为反例报告。</li>
+    <li><b>UID 的定义需要再考虑。</b>现在的 UID 只比 PUR 少一个与更新无关的常数，按 UID 选和按 PUR 选必然是同一个检查点。要让两者能选出不同的检查点，需要一个随更新变化的基线。</li>
     <li><b>写成论文主结论之前，至少要在另一个数据划分和第二个 Oracle 种子上复现。</b>目前的证据只来自一个模型、一个划分、一个随机种子。</li>
   </ul>
-  <p class="note">文中 * 表示 95% 置信区间不含 0。区间来自按人物聚类的 bootstrap（10,000 次重采样），模型之间的差是配对差。第三轮的最终测试只有 15 个人物。</p>
+  <p class="note">文中 * 表示 95% 置信区间不含 0。区间来自按人物聚类的 bootstrap（10,000 次重采样），模型之间的差是配对差。第三轮写"Holm 校正后"的地方，是对 5 个方法 × 3 个预算共 15 个比较做的校正。第三轮的最终测试只有 15 个人物。</p>
 </section>
 
 <section>
@@ -229,7 +232,8 @@ details > :not(summary) { margin-bottom: 0.9rem; }
       <dt>t_star</dt><dd>第二轮的状态：retain 准确率下降不超过 0.05 的检查点里更新量最大的一个。</dd>
       <dt>PUR / UID / RF</dt><dd>第三轮的指标：更新后高出同更新 Oracle 多少；其中由更新带来多少；恢复到 Full 的多少比例。</dd>
       <dt>可行检查点</dt><dd>满足 retain、GQA 和乱码率三项约束的检查点。</dd>
-      <dt>口径 A / 口径 B</dt><dd>第三轮的两种 utility 约束。A：只要求被攻击模型自己的 retain 下降不超过预算，是任务书的定义。B：同一个更新对被攻击模型、Full、Oracle 都不超预算，是看过结果后加的敏感性分析。</dd>
+      <dt>口径 A / 口径 B</dt><dd>第三轮的两种 utility 约束。B 是论文的主口径：同一个更新对被攻击模型、Full、Oracle 都不超预算，retain、GQA、输出有效性三项都要满足，在最终测试人物解封后才确定。A 只要求被攻击模型自己不超预算，作补充。</dd>
+      <dt>release gate</dt><dd>更新之前，遗忘模型的 retain、GQA 和输出有效性与 Full 的差距都不超过 5 个点才算通过。任一类问题有一半以上的回答是乱码，判为 collapsed。</dd>
     </dl>
   </details>
 </section>
@@ -358,9 +362,9 @@ details > :not(summary) { margin-bottom: 0.9rem; }
         <p class="col">在更新数据不含目标人物信息、并且 retain 准确率下降不超过 2、5 或 10 个点的条件下，遗忘模型是否仍然比接受同样更新的 Oracle 暴露出更多目标知识？</p>
         <p class="col">7 个模型各用 7 个学习率（1e-6 到 1e-4）在无关 VQA 上更新 100 个成功步，保存 9 个检查点，连同更新前共 448 个检查点。20 个测试人物分成 5 个验证人物和 15 个最终测试人物。攻击配置只在验证人物上选，选定并存档（19:02 UTC）之后才打开最终测试人物的结果（19:10 UTC）。下面的数字都来自 15 个最终测试人物（138 题）。</p>
         <div class="box">
-          <p class="eyebrow">结论取决于约束谁的 utility</p>
-          <p>任务书只约束被攻击模型自己的 retain（下称<b>口径 A</b>）。按这个口径给 GA-Diff ep2 和 KL-Min 选出的更新（lr 1e-4，10 步和 20 步）几乎不伤它们自己：它们的 retain 起点只有 0.69 和 0.72，而强更新会把所有模型的 retain 拉到差不多的水平。同一个更新却让 Full 掉 10 和 22 个点，让 Oracle 掉 14 和 26 个点。</p>
-          <p>要求同一更新对被攻击模型、Full、Oracle 都不超预算（下称<b>口径 B</b>）时，结论明显变弱。口径 B 是看过最终测试结果之后才加的，只能算敏感性分析。</p>
+          <p class="eyebrow">主口径：同一个更新对三个模型都不超预算</p>
+          <p>任务书原来只约束被攻击模型自己的 utility（下称<b>口径 A</b>）。按这个口径给 GA-Diff ep2 和 KL-Min 选出的更新（lr 1e-4，10 步和 20 步）几乎不伤它们自己：它们的 retain 起点只有 0.69 和 0.72，而强更新会把所有模型的 retain 拉到差不多的水平。同一个更新却让 Full 掉 10 和 22 个点，让 Oracle 掉 14 和 26 个点。</p>
+          <p>所以论文的主口径改为<b>口径 B</b>（matched counterfactual）：同一个更新必须让遗忘模型、Full、Oracle 都满足 retain、GQA 和输出有效性三项预算，口径 A 只作补充。口径 B 是在最终测试人物解封之后才定为主口径的，所以它的结果不是盲测确认；唯一的盲测确认仍是事先登记的口径 A。</p>
         </div>
         <div class="panel">
           <h3>同一个更新，三个模型付出的代价</h3>
@@ -375,21 +379,21 @@ details > :not(summary) { margin-bottom: 0.9rem; }
           <p class="cap">5 个点预算下的 PUR：更新后遗忘模型的十选一准确率减去接受同一更新的 Oracle 的准确率。KL-Min 的 +0.20* 只在口径 A 下存在。</p>
         </div>
         <div class="tablewrap"><table class="r3">
-          <thead><tr><th>方法</th><th class="num">更新前</th><th class="num">口径 A：2 / 5 / 10 点</th><th class="num">口径 B：2 / 5 / 10 点</th><th>归类</th></tr></thead>
+          <thead><tr><th>方法</th><th>release</th><th class="num">更新前</th><th class="num">口径 B（主）：2 / 5 / 10 点</th><th class="num">口径 B 下的 UID</th><th class="num">口径 A（补充）：2 / 5 / 10 点</th><th>归类</th></tr></thead>
           <tbody>
-            <tr><td class="name">IDK</td><td class="num sig">+0.59*</td><td class="num sig">+0.59* / +0.59* / +0.56*</td><td class="num sig">+0.59* / +0.59* / +0.59*</td><td>更新前就可访问；拒答闸门在 5 个点预算内被打开</td></tr>
-            <tr><td class="name">NPO</td><td class="num ns">+0.06</td><td class="num">+0.04 / +0.09*† / +0.17*</td><td class="num">+0.04 / +0.09*† / +0.15*</td><td>10 个点预算内更新后可访问，两种口径都成立；5 个点边缘</td></tr>
-            <tr><td class="name">GA-Diff ep2</td><td class="num ns">+0.07</td><td class="num sig">+0.19* / +0.19* / +0.24*</td><td class="num">+0.08 / +0.11*† / +0.11*†</td><td>口径 A 下 2 个点预算内即可访问；口径 B 下只剩边缘信号</td></tr>
-            <tr><td class="name">KL-Min</td><td class="num ns">−0.06</td><td class="num sig">+0.20* / +0.20* / +0.20*</td><td class="num ns">−0.02 / −0.03 / −0.03</td><td>口径 A 下显著；口径 B 下没有检测到恢复</td></tr>
-            <tr><td class="name">GA-Diff ep10</td><td class="num">−0.22*</td><td class="num">−0.22* / −0.22* / −0.22*</td><td class="num">−0.22* / −0.22* / −0.22*</td><td>预算内没有变化；预算外只修复了生成能力</td></tr>
+            <tr><td class="name">IDK</td><td>通过</td><td class="num sig">+0.59*</td><td class="num sig">+0.59* / +0.59* / +0.59*</td><td class="num ns">−0.00 / −0.00 / −0.00</td><td class="num sig">+0.59* / +0.59* / +0.56*</td><td>更新前就可访问；主口径 5 和 10 个点下拒答闸门坍塌</td></tr>
+            <tr><td class="name">NPO</td><td>受损（−13 点）</td><td class="num ns">+0.06</td><td class="num">+0.04 / +0.09*† / +0.15*</td><td class="num">−0.01 / +0.03*† / +0.10*†</td><td class="num">+0.04 / +0.09*† / +0.17*</td><td>主口径 10 个点下更新后残留显著，但不能归因于更新</td></tr>
+            <tr><td class="name">GA-Diff ep2</td><td>受损（−29 点）</td><td class="num ns">+0.07</td><td class="num">+0.08 / +0.11*† / +0.11*†</td><td class="num ns">+0.01 / +0.04 / +0.04</td><td class="num sig">+0.19* / +0.19* / +0.24*</td><td>恢复只在口径 A 下成立</td></tr>
+            <tr><td class="name">KL-Min</td><td>受损（−26 点）</td><td class="num ns">−0.06</td><td class="num ns">−0.02 / −0.03 / −0.03</td><td class="num">+0.04*† / +0.04*† / +0.04*†</td><td class="num sig">+0.20* / +0.20* / +0.20*</td><td>恢复只在口径 A 下成立，主口径下消失</td></tr>
+            <tr><td class="name">GA-Diff ep10</td><td>collapsed</td><td class="num">−0.22*</td><td class="num">−0.22* / −0.22* / −0.22*</td><td class="num ns">+0.00 / +0.00 / +0.00</td><td class="num">−0.22* / −0.22* / −0.22*</td><td>预算内没有变化；预算外只修复了生成能力</td></tr>
           </tbody>
         </table></div>
-        <p class="note">PUR，15 个最终测试人物。* 表示 95% 区间不含 0；† 表示边缘：符号翻转检验或 Holm 校正后的 p 大于 0.05。口径 A 是事先规定的验证性分析，口径 B 是事后的敏感性分析。</p>
+        <p class="note">15 个最终测试人物上的 PUR（更新后遗忘模型减去同更新的 Oracle）和 UID（其中由更新带来的部分）。配置在验证人物上按 PUR 选，测试人物只计算一次；按 UID 选出的配置完全相同。release 一列是更新前 retain 与 Full 的差距（5 个点容差）。* 表示 95% 区间不含 0；*† 表示区间不含 0，但对 5 个方法 × 3 个预算共 15 个比较做 Holm 校正后不显著。</p>
         <ul class="col">
-          <li><b>GA-Diff ep2：</b>lr 1e-4 × 10 步后准确率 0.357 → 0.464，同更新的 Oracle 0.286 → 0.270。PUR +0.19* [0.10, 0.29]，其中 +0.12* 是这次更新带来的，15 人中 12 人为正，六条标准全过。</li>
-          <li><b>KL-Min：</b>lr 1e-4 × 20 步后 0.222 → 0.462，PUR +0.20* [0.11, 0.30]，由更新带来 +0.27*。六条标准里"不只是乱码减少"按字面没过：乱码答案从 4 题降到 0 题，降幅 0.029 超过 0.02 的阈值。去掉这 4 题重算，结果不变。</li>
-          <li><b>NPO：</b>2 个点预算内没有恢复。10 个点预算下 +0.17* [0.09, 0.24]；口径 B 下换成对 Full 和 Oracle 只降约 4 个点的更新（lr 1e-4 × 5 步），仍是 +0.15*，15 人中 13 人为正。</li>
-          <li><b>GA-Diff ep10：</b>所有可行检查点上都没有变化。只有 lr 1e-4 第 20 步以后准确率升到 0.18–0.30，这时乱码答案从 100% 降到 13–72%，retain 又掉 16–19 个点，而准确率只回到 Oracle 的水平（PUR 区间含 0）。这是生成能力的修复，不是目标知识的恢复。</li>
+          <li><b>NPO：</b>主口径 10 个点预算下，选出的更新（lr 1e-4 × 5 步）让 NPO、Full、Oracle 的 retain 分别降 8.9、4.4、4.2 个点。更新后高出同更新的 Oracle +0.15* [0.07, 0.23]，Holm 校正后仍显著，15 人中 13 人为正；但由更新带来的部分 +0.10* [0.02, 0.17] 在 Holm 校正后不显著，更新前的 +0.06 也不显著。所以只能说更新后有残留，不能说是更新造成的。</li>
+          <li><b>GA-Diff ep2：</b>口径 A 下，lr 1e-4 × 10 步后准确率 0.357 → 0.464，同更新的 Oracle 0.286 → 0.270，PUR +0.19* [0.10, 0.29]，由更新带来 +0.12*。主口径下选出的是 lr 5e-5 × 10 步，只剩 +0.11*，Holm 校正后不显著，由更新带来的部分也不显著。</li>
+          <li><b>KL-Min：</b>口径 A 下，lr 1e-4 × 20 步后 0.222 → 0.462，PUR +0.20* [0.11, 0.30]，由更新带来 +0.27*。主口径下选出的更新（lr 2e-5 × 20 步）之后是 −0.02，没有检测到恢复。</li>
+          <li><b>GA-Diff ep10：</b>所有可行检查点上都没有变化。不加任何约束时（lr 1e-4 × 80 步），自身准确率升了 +0.24*，乱码答案少了 75 个百分点，但 PUR +0.03 不显著，自身 retain 又掉了 17 个点。这是生成能力的修复，不是目标知识的恢复。</li>
         </ul>
         <p class="col"><b>IDK：恢复的是生成，不是知识。</b>十选一在更新前就是 0.872（Oracle 0.286，Full 0.974），更新没有让它再升。变化出在拒答闸门上。lr 1e-4 × 5 步的更新之后：</p>
         <div class="stats">
@@ -406,6 +410,18 @@ details > :not(summary) { margin-bottom: 0.9rem; }
           <li><b>除 IDK 外，自由生成里几乎看不到恢复。</b>NPO、GA-Diff ep2、KL-Min 的生成答对率从 0.13–0.16 升到 0.21–0.23，同更新的 Oracle 是 0.14–0.20，67–79% 的回答仍是编的。这三个模型暴露的是"在给定的候选里偏向正确答案"，不是直接说出答案。</li>
           <li><b>Oracle 在全部 63 个更新后检查点上</b>都在 0.238–0.269（更新前 0.265），没有任何更新让它获得目标知识。</li>
         </ul>
+        <details>
+          <summary>按主口径重分析：做法和检查</summary>
+          <ul class="col">
+            <li>只读第三轮已有的检查点输出，没有新的训练或评测。代码是 <code>ur_counterfactual_utility_reanalysis.py</code>，结果在 <code>counterfactual_utility/</code>。</li>
+            <li>每个学习率下，七个模型的配置、100 个成功 batch 的顺序和各检查点的 token 数完全一致，所以"同一个更新"可以逐模型核对。</li>
+            <li>配置只在 5 个验证人物上选。把测试人物的输出全部换成随机数后重跑，180 个选择全部不变。</li>
+            <li>口径 A 复现了原来事先登记的可行性标记（945/945）和冻结的选择（15/15），测试数值也与原分析完全相同。</li>
+            <li>12 个检查点由独立脚本从原始逐题文件重算，结果一致；两次完整运行的 17 个输出文件逐字节相同。</li>
+            <li>按 UID 选和按 PUR 选必然得到同一个检查点（60/60 一致），因为 UID 只比 PUR 少一个与更新无关的常数。</li>
+            <li>有逐检查点数据的 utility 指标是 retain、GQA 和输出有效性三项；没有其他通用基准、纯文本能力或流畅度指标。</li>
+          </ul>
+        </details>
         <details>
           <summary>设置、执行情况和与任务书的偏差</summary>
         <div class="tablewrap"><table>
@@ -474,10 +490,10 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <tbody>
       <tr><td class="name">Oracle</td><td>没有目标知识的下限</td><td>所有问法、所有更新下 0.21–0.28</td></tr>
       <tr><td class="name">Full</td><td>上限，未遗忘</td><td>0.98；写完 rationale 后降到 0.55</td></tr>
-      <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，知识基本完整</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次只让 retain 降 3 个点的无关更新后拒答 13%、生成答对 0.61</td></tr>
-      <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；10 个点预算内的无关更新后 +0.17*，对 Full 和 Oracle 也无损的更新下 +0.15*</td></tr>
-      <tr><td class="name">GA-Diff ep2</td><td>认得出人，属性接近 Oracle，个别属性低于 Oracle，retain 已受损</td><td>姓名题 +0.37*；生日 −0.24*；retain 0.69；无关更新后 +0.19*，但那次更新让 Full 和 Oracle 掉 10 和 14 个点</td></tr>
-      <tr><td class="name">KL-Min</td><td>更新前最接近 Oracle，强的无关更新能把它推到 Oracle 之上</td><td>更新前 −0.04（不显著）；lr 1e-4 × 20 步后 +0.20*，自身 retain 只降 0.01，但同一更新让 Full 和 Oracle 降 22 和 26 个点；对三者都不超预算的更新下 −0.02</td></tr>
+      <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，知识基本完整；唯一通过 release gate 的遗忘模型</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次让三个模型 retain 各降 3 到 4 个点的无关更新后，拒答 13%、生成答对 0.61</td></tr>
+      <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人；更新前 retain 已比 Full 低 13 个点</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；主口径 10 个点预算下 +0.15*（Holm 校正后显著），但由更新带来的部分校正后不显著</td></tr>
+      <tr><td class="name">GA-Diff ep2</td><td>认得出人，属性接近 Oracle，个别属性低于 Oracle；更新前 retain 已比 Full 低 29 个点</td><td>姓名题 +0.37*；生日 −0.24*；只看自身 utility 时无关更新后 +0.19*，但那次更新让 Full 和 Oracle 掉 10 和 14 个点；主口径下只剩未校正的 +0.11*</td></tr>
+      <tr><td class="name">KL-Min</td><td>更新前最接近 Oracle；更新前 retain 已比 Full 低 26 个点</td><td>更新前 −0.04（不显著）；只看自身 utility 时 lr 1e-4 × 20 步后 +0.20*，但同一更新让 Full 和 Oracle 降 22 和 26 个点；主口径下 −0.02</td></tr>
       <tr><td class="name">GA-Diff ep10</td><td>模型被破坏，不算遗忘成功</td><td>生成 100% 是乱码；准确率 0.07，低于 Oracle 也低于随机；预算外的更新修复了部分生成，准确率只回到 Oracle 水平</td></tr>
     </tbody>
   </table></div>
@@ -495,8 +511,9 @@ details > :not(summary) { margin-bottom: 0.9rem; }
         <li>在这个模型上，要求写显式 rationale 不会提高目标知识的可访问性，对保有知识的模型反而降低。</li>
         <li>最终答案会照抄 rationale 里陈述的属性，但 rationale 里陈述的身份对属性答案影响很小。</li>
         <li>一次只让各模型 retain 降约 4 个点的无关更新，就能打开 IDK 的拒答闸门：生成答对率从 0 升到 0.61，高出同更新的 Oracle +0.43*。</li>
-        <li>NPO 在 10 个点预算内的无关更新后显著高于同更新的 Oracle，这个更新对 Full 和 Oracle 也不超预算时同样成立（+0.15*）。</li>
-        <li>KL-Min 和 GA-Diff ep2 在一次几乎不损失自身 retain 的无关更新后显著高于同更新的 Oracle（+0.20*、+0.19*），Oracle 在同一更新下没有变化。但这次更新让健康模型的 retain 掉 10 到 26 个点。</li>
+        <li>NPO 在一次对三个模型都不超 10 个点预算的无关更新后，仍显著高于同更新的 Oracle（+0.15*，Holm 校正后显著）；但这个差距能否归因于这次更新还不确定。</li>
+        <li>只看被攻击模型自己的 utility 时，KL-Min 和 GA-Diff ep2 在一次几乎不损失自身 retain 的无关更新后显著高于同更新的 Oracle（+0.20*、+0.19*）。但这次更新让健康模型的 retain 掉 10 到 26 个点，按主口径不算良性更新。</li>
+        <li>在任何更新之前，只有 IDK 的 retain 与 Full 相差不到 5 个点；NPO、GA-Diff ep2、KL-Min 已低 13 到 29 个点。</li>
         <li>第一轮里，无关数据上的微调和真实标签上的微调恢复得差不多，Oracle 在任何一组都不恢复。</li>
       </ul>
     </div>
@@ -508,6 +525,8 @@ details > :not(summary) { margin-bottom: 0.9rem; }
         <li>"CoT 审计能发现强制选择发现不了的残留知识"。这里是反过来的，似然强制选择更灵敏。</li>
         <li>"良性更新普遍会恢复被遗忘的知识"。不存在对所有方法都有效的通用更新；KL-Min 和 GA-Diff ep2 的恢复依赖一个对健康模型有破坏性的更新。</li>
         <li>GA-Diff ep10 在更新后恢复了目标知识。它恢复的是生成能力，准确率只回到 Oracle 的水平。</li>
+        <li>NPO 的知识是被良性更新恢复的。主口径下由更新带来的部分在 Holm 校正后不显著。</li>
+        <li>IDK 的知识是被更新恢复的。更新只打开了拒答闸门，残留在更新之前就在。</li>
         <li>某个方法"不可恢复"，或属性知识"已被删除"。只能说在受测的读数和更新范围内没有检测到。</li>
         <li>这些结果代表所有多模态大模型或所有遗忘方法。</li>
       </ul>
@@ -526,7 +545,8 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <li><b>泄漏标签没有经过人工复核</b>，只有规则和 Claude 的一遍通读。</li>
     <li><b>GA-Diff ep10 的所有生成类指标没有意义</b>，它的输出全是乱码。</li>
     <li><b>第三轮用的是 fp16 精度</b>，不是任务书优先要求的 bf16。</li>
-    <li><b>第三轮的 utility 约束只看被攻击模型自己</b>（任务书的定义）。对 Full 和 Oracle 也无损的口径 B 是看过最终测试结果之后才加的。</li>
+    <li><b>第三轮的主口径（口径 B）是在最终测试人物解封后才确定的</b>，所以主口径的结果不是盲测确认。唯一的盲测确认是事先登记的口径 A。</li>
+    <li><b>NPO、GA-Diff ep2、KL-Min 在 release 时已经受损</b>，它们的"恢复"是在本来就失去大量 retain 能力的模型上测得的。</li>
     <li><b>第三轮只有 5 个验证人物</b>，用它们选配置有噪声：NPO 的 PUR 从验证人物到最终测试人物缩小了一半以上。</li>
     <li><b>第三轮只用了一种更新数据</b>：77 个问答，100 步相当于过了 5 遍多。强学习率对健康模型的损伤可能部分来自对这一小撮数据的过拟合，换成更大更杂的无关数据，口径 B 下的结论可能不同。</li>
   </ul>
@@ -536,7 +556,7 @@ details > :not(summary) { margin-bottom: 0.9rem; }
   <h2>等待决定的事</h2>
   <p class="col">三轮都已完成，现在停下等指令，没有自动扩展到其他划分或其他模型。</p>
   <ol class="col">
-    <li><b>论文用哪个 utility 定义。</b>口径 A 对应"部署方只监控自己模型的 utility"，结果更强；口径 B 更经得起追问，但在它之下只剩 IDK 和 NPO 的结论是清楚的。建议两个都报，主张以口径 B 能支持的为限。</li>
+    <li><b>UID 是否换一个随更新变化的基线。</b>现在的 UID 只比 PUR 少一个与更新无关的常数，按 UID 选和按 PUR 选必然是同一个检查点。一个可选的基线是同一更新下 Full 与 Oracle 的差距。</li>
     <li><b>是否先复现，再做 hidden-state 分析。</b>最适合做内部表征分析的是 IDK 的闸门坍塌：效应大，两种口径都成立，转变发生在很窄的步数区间。其次是 NPO。写成论文主结论之前，至少需要另一个划分和第二个 Oracle 种子。</li>
     <li><b>是否测更温和的更新</b>：更大的无关数据、更多步、更小的学习率，看 KL-Min 和 GA-Diff ep2 在口径 B 下是否仍然不恢复。</li>
     <li><b>是否把前两轮有区分度的部分扩展到其余四个划分。</b>建议做精简版：三种问法下的似然十选一（姓名题与属性题分开）、带 Oracle 同配置对照的学习率扫描、干预里的身份替换和 rationale 互换。去掉候选枚举、字母选择、采样和自由生成 JSON。</li>
@@ -547,15 +567,19 @@ details > :not(summary) { margin-bottom: 0.9rem; }
 </section>
 
 <section>
-  <h2>第三轮的三张图</h2>
-  <p class="note">图内文字是英文。原图在 <code>~/MMU/runs/utility_recovery_s0/figures/</code>，那里还有行为轨迹图 fig3 和两种口径的对比图 fig5。</p>
+  <h2>第三轮的四张图</h2>
+  <p class="note">图内文字是英文。前三张来自按主口径的重分析（<code>~/MMU/runs/utility_recovery_s0/counterfactual_utility/figures/</code>），第四张来自原分析（<code>~/MMU/runs/utility_recovery_s0/figures/</code>）。</p>
   <figure>
-    <div class="frame"><img src="assets/ur_fig1.png" alt="五个遗忘方法各一幅散点图，横轴是被攻击模型自身的 retain 下降，纵轴是相对同更新 Oracle 的差，附上包络线和三条预算线" loading="lazy"></div>
-    <figcaption><b>恢复和 utility 代价的关系。</b>每个点是一个检查点（7 个学习率 × 9 步），横轴是被攻击模型自身的 retain 下降，纵轴是 PUR（全部 186 题，描述性）。Oracle 接受同一更新，所以它是零线。三条虚线是 2、5、10 个点的预算。注意横轴只算被攻击模型自己的代价，也就是口径 A。</figcaption>
+    <div class="frame"><img src="assets/cf_criterion.png" alt="三个预算下五个方法的 PUR，每个方法两个点：口径 A 和口径 B，带 95% 区间" loading="lazy"></div>
+    <figcaption><b>两种口径下的可恢复性。</b>每个方法两个点：橙色是口径 A（只约束被攻击模型），蓝色是口径 B（主口径，同一更新对三个模型都不超预算）。检查点都在验证人物上按 PUR 选，竖线是 15 个最终测试人物上的 95% 区间，空心表示 Holm 校正后不显著。从口径 A 到口径 B，KL-Min 和 GA-Diff ep2 掉得最多。</figcaption>
   </figure>
   <figure>
-    <div class="frame"><img src="assets/ur_fig2.png" alt="三档预算下每个方法的 PUR 柱状图，带置信区间和每个人物的点；右侧是 IDK 的拒答坍塌" loading="lazy"></div>
-    <figcaption><b>三档预算下的恢复量</b>（口径 A，检查点在验证人物上选，在 15 个最终测试人物上报告），每个灰点是一个人。右侧是 IDK 的拒答坍塌：实心柱是 PUR 最大的检查点，那里拒答完全没变；空心柱是生成答对最多的检查点。</figcaption>
+    <div class="frame"><img src="assets/cf_pur_uid.png" alt="选中检查点的 PUR 对 UID 散点图，实心为口径 B，空心为口径 A" loading="lazy"></div>
+    <figcaption><b>PUR 对 UID。</b>横轴是更新后高出同更新 Oracle 的部分，纵轴是其中由更新带来的部分。IDK 停在 PUR 很高、UID 约为 0 的位置，说明残留在更新之前就在；KL-Min 从口径 A（空心）到口径 B（实心）几乎回到原点。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/cf_release.png" alt="更新前 retain 差距与 PUR 的关系，按 release 分类着色" loading="lazy"></div>
+    <figcaption><b>更新前的 retain 差距与可恢复性。</b>横轴是更新之前 Full 与遗忘模型的 retain 差距；空心点是更新前的残留，实心点是主口径 5 个点预算下的可恢复性。绿色通过 release gate，橙色受损，灰色 collapsed。</figcaption>
   </figure>
   <figure>
     <div class="frame"><img src="assets/ur_fig4.png" alt="四个学习率下 IDK 的拒答率、生成答对率、Oracle 的生成答对率和 IDK 的 retain 准确率随更新步数的变化" loading="lazy"></div>
@@ -666,7 +690,7 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <tbody>
       <tr><td class="name">第一轮</td><td><code>~/MMU/runs/ctrl/</code></td><td><code>ctrl_report_s0.txt</code>，稳健性检查在 <code>ctrl_robust_s0.txt</code></td></tr>
       <tr><td class="name">第二轮</td><td><code>~/MMU/runs/cot_audit_s0/</code></td><td><code>cot_audit_report.md</code>；全部表格在 <code>cot_audit_tables.txt</code>，学习率扫描在 <code>scan_report.txt</code>，干预在 <code>causal_report.txt</code></td></tr>
-      <tr><td class="name">第三轮</td><td><code>~/MMU/runs/utility_recovery_s0/</code></td><td><code>utility_recovery_report.md</code>；全部表格在 <code>tables.txt</code>，每个设定的最终测试结果在 <code>metrics_test.csv</code>，逐检查点记录在 <code>checkpoint_metrics.jsonl</code>，图在 <code>figures/</code></td></tr>
+      <tr><td class="name">第三轮</td><td><code>~/MMU/runs/utility_recovery_s0/</code></td><td>按主口径的重分析：<code>counterfactual_utility/counterfactual_utility_report.md</code>（定义在 <code>definitions.md</code>，汇总在 <code>method_summary.csv</code>）；原分析：<code>utility_recovery_report.md</code>（表格在 <code>tables.txt</code>，结果在 <code>metrics_test.csv</code>）</td></tr>
     </tbody>
   </table></div>
   <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>。</p>
