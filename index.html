@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MLLMU 遗忘审计汇总</title>
+<meta name="description" content="LLaVA-1.5-7B 多模态遗忘三轮实验的阶段汇总：重学对照、推理路径审计、utility 约束下的恢复。">
+<meta name="color-scheme" content="light dark">
+<style>
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+/* layout: one reading column on a cool paper ground; evidence (tables, accuracy tracks, figures) breaks out wider;
+   a three-stop rail under the title carries the state of the three experiment rounds, which really are a sequence */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --ink: #141925; --ink2: #434b5c; --muted: #737b8c; --rule: #dde2ea; --rule2: #eceff4;
+  --accent: #1d66c2; --accent-soft: #e3edfa; --warm: #c8521d; --warm-soft: #fbe9df;
+  --good: #14805e; --good-soft: #dff3ea; --warn: #9a6a12; --warn-soft: #f8edd2;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --ref: #8a92a3; --paper: #fcfcfb; --paper-ink: #52514e;
+  --font-body: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-head: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1117; --surface: #161a23; --ink: #e8ebf1; --ink2: #b3bac8; --muted: #8790a3; --rule: #293040; --rule2: #1e2430;
+  --accent: #74aaf3; --accent-soft: #1a2a45; --warm: #f0895c; --warm-soft: #3a2218;
+  --good: #52c79d; --good-soft: #14322a; --warn: #dfb25c; --warn-soft: #382c12;
+  --s1: #6aa6f5; --s2: #f08a5d; --s3: #4cc79a; --ref: #7e8799; --paper: #f1f2f0; --paper-ink: #52514e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1117; --surface: #161a23; --ink: #e8ebf1; --ink2: #b3bac8; --muted: #8790a3; --rule: #293040; --rule2: #1e2430;
+  --accent: #74aaf3; --accent-soft: #1a2a45; --warm: #f0895c; --warm-soft: #3a2218;
+  --good: #52c79d; --good-soft: #14322a; --warn: #dfb25c; --warn-soft: #382c12;
+  --s1: #6aa6f5; --s2: #f08a5d; --s3: #4cc79a; --ref: #7e8799; --paper: #f1f2f0; --paper-ink: #52514e; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.7; }
+.wrap { max-width: 68rem; margin: 0 auto; padding-block: 2.5rem 4rem; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 3rem; }
+.col { max-width: 46rem; }
+h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; line-height: 1.25; margin: 0; }
+h1 { font-size: clamp(1.7rem, 4.2vw, 2.5rem); font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 1.35rem; font-weight: 600; }
+h3 { font-size: 1.02rem; font-weight: 600; }
+p { margin: 0; } ul, ol { margin: 0; padding-left: 1.25rem; } li + li { margin-top: 0.35rem; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--rule2); padding: 0.08em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.08rem; color: var(--ink2); max-width: 46rem; }
+section { display: flex; flex-direction: column; gap: 1.1rem; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; }
+.note { color: var(--muted); font-size: 0.86rem; line-height: 1.6; }
+
+header.top { display: flex; flex-direction: column; gap: 1rem; }
+.rail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); margin-top: 0.6rem; }
+.stop { padding: 0.9rem 1rem 0.2rem 0; display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; border-right: 1px solid var(--rule); padding-left: 1rem; }
+.stop:first-child { padding-left: 0; } .stop:last-child { border-right: 0; }
+.stop .n { font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); letter-spacing: 0.06em; }
+.stop .t { font-weight: 600; line-height: 1.35; }
+.stop .d { font-size: 0.88rem; color: var(--ink2); line-height: 1.55; }
+.pill { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; font-weight: 500; padding: 0.12rem 0.55rem; border-radius: 999px; width: fit-content; line-height: 1.5; }
+.pill::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: currentColor; }
+.pill.done { background: var(--good-soft); color: var(--good); } .pill.run { background: var(--warn-soft); color: var(--warn); } .pill.wait { background: var(--rule2); color: var(--muted); }
+@media (max-width: 720px) { .rail { grid-template-columns: 1fr; } .stop { border-right: 0; border-bottom: 1px solid var(--rule); padding: 0.8rem 0; } .stop:last-child { border-bottom: 0; } }
+
+.key { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); max-width: 52rem; }
+.key li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 0.4rem; padding: 0.8rem 0; border-bottom: 1px solid var(--rule); margin: 0; }
+.key li > span:first-child { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); padding-top: 0.2rem; }
+.key b { font-weight: 600; }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 0.55rem 0.8rem; text-align: left; border-bottom: 1px solid var(--rule2); vertical-align: top; line-height: 1.5; }
+thead th { font-size: 0.78rem; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--rule); white-space: nowrap; background: var(--surface); }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-size: 0.84rem; white-space: nowrap; }
+td.name { font-weight: 600; white-space: nowrap; }
+table.r3 th:last-child, table.r3 td:last-child { min-width: 13rem; }
+.sig { font-weight: 500; } .ns { color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 1.1rem 1.2rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
+.panel > .cap { font-size: 0.86rem; color: var(--ink2); line-height: 1.6; max-width: 52rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; font-size: 0.8rem; color: var(--ink2); }
+.legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.mk { display: inline-block; width: 0.7rem; height: 0.7rem; flex: none; box-sizing: border-box; }
+.mk.s1 { background: var(--s1); border-radius: 50%; } .mk.s2 { background: var(--s2); border-radius: 2px; } .mk.s3 { background: var(--s3); transform: rotate(45deg); border-radius: 1px; }
+.mk.hollow { background: var(--surface); border: 2px solid var(--s1); border-radius: 50%; } .mk.refl { width: 0; height: 0.9rem; border-left: 2px dashed var(--ref); }
+.mk.band { width: 1.1rem; background: var(--ref); opacity: 0.28; border-radius: 2px; }
+.tracks { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.trow { display: grid; grid-template-columns: 7.6rem minmax(0, 1fr) auto; align-items: center; gap: 0.8rem; padding: 0.42rem 0; border-top: 1px solid var(--rule2); }
+.trow.axis { border-top: 0; padding: 0; } .trow .lab { font-size: 0.88rem; font-weight: 500; line-height: 1.3; } .trow .lab small { display: block; font-weight: 400; color: var(--muted); font-size: 0.74rem; }
+.trow .vals { font-family: var(--font-mono); font-size: 0.76rem; color: var(--ink2); white-space: nowrap; text-align: right; min-width: 9.5rem; }
+.track { position: relative; height: 1.5rem; min-width: 0; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--rule); }
+.track .ref { position: absolute; top: -0.42rem; bottom: -0.42rem; width: 0; border-left: 1.5px dashed var(--ref); }
+.track .bandr { position: absolute; top: -0.42rem; bottom: -0.42rem; background: var(--ref); opacity: 0.16; }
+.track .link { position: absolute; top: calc(50% - 1.5px); height: 3px; background: var(--s1); opacity: 0.45; border-radius: 2px; }
+.track .pt { position: absolute; top: 50%; width: 0.82rem; height: 0.82rem; margin: -0.41rem 0 0 -0.41rem; box-sizing: border-box; border: 2px solid var(--surface); cursor: default; outline-offset: 2px; }
+.track .pt.s1 { background: var(--s1); border-radius: 50%; } .track .pt.s2 { background: var(--s2); border-radius: 3px; } .track .pt.s3 { background: var(--s3); transform: rotate(45deg); border-radius: 2px; }
+.track .pt.hollow { background: var(--surface); border: 2px solid var(--s1); border-radius: 50%; }
+.track .pt:hover::after, .track .pt:focus-visible::after { content: attr(data-tip); position: absolute; bottom: 1.25rem; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); font-family: var(--font-mono); font-size: 0.72rem; padding: 0.2rem 0.45rem; border-radius: 4px; white-space: nowrap; z-index: 5; pointer-events: none; }
+.track .pt.s3:hover::after, .track .pt.s3:focus-visible::after { transform: rotate(-45deg) translate(-35%, -120%); bottom: auto; }
+.axis .track { height: 1.3rem; } .axis .track::before { display: none; }
+.axis .tick { position: absolute; top: 0; transform: translateX(-50%); font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+.axis .tick.first { transform: none; } .axis .tick.last { transform: translateX(-100%); }
+@media (max-width: 640px) { .trow { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; padding: 0.6rem 0; } .trow .vals { text-align: left; min-width: 0; white-space: normal; } .trow.axis .lab, .trow.axis .vals { display: none; } }
+
+.meter { height: 0.6rem; background: var(--rule2); border-radius: 999px; overflow: hidden; } .meter > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.stat { padding: 0.8rem 1rem 0.8rem 0; min-width: 0; } .stat .v { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 500; line-height: 1.2; } .stat .k { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2.5rem; } @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+.two h3 { padding-bottom: 0.4rem; border-bottom: 2px solid var(--ink); margin-bottom: 0.7rem; } .two h3.no { border-color: var(--warm); }
+.rounds { display: flex; flex-direction: column; gap: 2.2rem; }
+.round { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 0.6rem 1rem; }
+.round > .n { font-family: var(--font-mono); font-size: 1.5rem; color: var(--muted); line-height: 1.2; }
+.round > .body { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; }
+.round .hd { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.8rem; }
+@media (max-width: 640px) { .round { grid-template-columns: 1fr; } .round > .n { font-size: 1rem; } }
+dl.defs { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0.5rem 1.2rem; margin: 0; max-width: 52rem; } dl.defs dt { font-weight: 600; } dl.defs dd { margin: 0; color: var(--ink2); }
+@media (max-width: 640px) { dl.defs { grid-template-columns: 1fr; gap: 0.1rem; } dl.defs dd { margin-bottom: 0.6rem; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+figure .frame { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 0.6rem; overflow-x: auto; }
+figure .frame img { display: block; min-width: 640px; width: 100%; height: auto; }
+figcaption { font-size: 0.86rem; color: var(--ink2); line-height: 1.6; max-width: 52rem; }
+footer { border-top: 1px solid var(--rule); padding-top: 1.2rem; color: var(--muted); font-size: 0.84rem; }
+:focus-visible { outline: 2px solid var(--accent); }
+details { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); min-width: 0; }
+details + details { border-top: 0; }
+details > summary { cursor: pointer; padding: 0.65rem 0; font-weight: 500; color: var(--ink2); }
+details[open] > summary { color: var(--ink); }
+details > :not(summary) { margin-bottom: 0.9rem; }
+.rewrite { display: flex; flex-direction: column; gap: 0.4rem; max-width: 46rem; padding: 0.9rem 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.rewrite .old { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--warm); }
+.rewrite .new { font-weight: 600; font-size: 1.04rem; line-height: 1.6; }
+.box { border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1.2rem; background: var(--warm-soft); max-width: 52rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.box .eyebrow { color: var(--warm); }
+.trow .vals { min-width: 0; }
+@media (min-width: 641px) { #c4 .trow { grid-template-columns: 7.6rem minmax(0, 1fr) minmax(0, 17.5rem); } #c4 .vals { white-space: normal; } #c0 .trow, #c2a .trow, #c2b .trow { grid-template-columns: 7.6rem minmax(0, 1fr) 11.5rem; }
+  #c5 .trow, #c6 .trow { grid-template-columns: 7.6rem minmax(0, 1fr) minmax(0, 18rem); } #c5 .vals, #c6 .vals { white-space: normal; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow">阶段汇总 · 截至 2026-11-19 · 三轮均已完成</p>
+  <h1>多模态遗忘评测：做了什么，现在知道什么</h1>
+  <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物），一个数据划分、一个随机种子。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。</p>
+  <div class="rail">
+    <div class="stop"><span class="n">第一轮</span><span class="t">四组重学对照</span><span class="pill done">已完成</span><span class="d">用无关数据微调，恢复得和用真实标签差不多。但这种微调代价很大。</span></div>
+    <div class="stop"><span class="n">第二轮</span><span class="t">推理路径审计</span><span class="pill done">已完成</span><span class="d">让模型先写推理不会多暴露知识。换一种问法会。</span></div>
+    <div class="stop"><span class="n">第三轮</span><span class="t">utility 约束下的恢复</span><span class="pill done">已完成</span><span class="d">只约束被攻击模型自己的 utility 时，三个方法显著高于 Oracle。要求同一更新对 Full 和 Oracle 也无损时，只剩 IDK 的拒答坍塌和 NPO。</span></div>
+  </div>
+</header>
+
+<section>
+  <h2>现状</h2>
+  <ul class="key">
+    <li><span>1</span><span><b>除了一个被训练破坏的模型，其余四个遗忘模型都能在某种读数下显著高于 Oracle。</b>遗忘方法改变的主要是"在什么问法下答得出来"。IDK 在训练时的问法下 100% 拒答，换一句提示后只有 3% 拒答。NPO、GA-Diff ep2、KL-Min 仍然认得出人，姓名题比 Oracle 高 +0.21* 到 +0.57*。</span></li>
+    <li><span>2</span><span><b>让模型先写一段推理，不会多暴露知识。</b>没有任何模型在写完推理之后准确率上升。</span></li>
+    <li><span>3</span><span><b>无关数据上的更新能否在 utility 约束下恢复知识，取决于约束谁的 utility。</b>只约束被攻击模型自己时（任务书的定义），GA-Diff ep2 和 KL-Min 在 2 个点预算内就显著高于同更新的 Oracle（+0.19*、+0.20*），NPO 在 10 个点预算内（+0.17*）。但给前两者选出的更新会让 Full 和 Oracle 的 retain 掉 10 到 26 个点。要求同一更新对三者都不超预算时，KL-Min 没有恢复，GA-Diff ep2 只剩边缘信号，NPO 仍然成立（+0.15*）。</span></li>
+    <li><span>4</span><span><b>IDK 的拒答闸门很容易打开，GA-Diff ep10 则什么也恢复不了。</b>一次只让 retain 降 3 个点的无关更新，就把 IDK 的拒答率从 100% 降到 13%，生成答对率从 0 升到 0.61。GA-Diff ep10 在预算内没有任何变化，预算外也只回到 Oracle 的水平。</span></li>
+    <li><span>5</span><span><b>证据范围很窄：</b>一个模型、一个划分、一个种子、一个 Oracle 种子；第三轮的最终测试只有 15 个人物。</span></li>
+  </ul>
+  <p class="note">文中 * 表示 95% 置信区间不含 0。区间来自按人物聚类的 bootstrap（10,000 次重采样），模型之间的差是配对差。</p>
+</section>
+
+<section>
+  <h2>设定</h2>
+  <dl class="defs">
+    <dt>数据</dt><dd>MLLMU-Bench 有 500 个虚构人物，每人一张人脸图和若干问答（姓名、出生地、居住地、教育、职业、生日、身高、薪资、父母职业）。25 人要遗忘（forget），475 人要保留（retain）。</dd>
+    <dt>测试集</dt><dd>25 个遗忘人物里 5 人留给第一轮做"重学"数据，其余 20 人的 186 道题是三轮共用的测试集。另用 25 个 retain 人物的 241 道题衡量模型还剩多少正常能力（下文称 utility），用 400 道 GQA 题衡量与人物无关的通用能力。</dd>
+    <dt>主读数</dt><dd>句子似然十选一：把正确答案句和 9 个只换了属性值的干扰句分别交给模型，看哪一句概率最高，干扰项抽 5 组取平均。它不要求模型生成合法文本，所以拒答的模型和输出乱码的模型也能测。随机水平 0.10。</dd>
+    <dt>为什么减 Oracle</dt><dd>Oracle 从未见过遗忘人物，但它的十选一准确率是 0.26 而不是 0.10，因为它会根据外貌和常见取值猜对一部分。只有高出 Oracle 的部分才能算作残留知识。</dd>
+  </dl>
+  <div class="panel">
+    <h3>七个模型的起点</h3>
+    <div class="legend"><span><i class="mk s1"></i>遗忘人物（186 题）</span><span><i class="mk s2"></i>retain 人物（241 题）</span><span><i class="mk refl"></i>随机水平 0.10</span></div>
+    <div class="tracks" id="c0"></div>
+    <p class="cap">十选一准确率。Full 在全部 500 人上微调，没有做遗忘。五个遗忘模型都从 Full 出发，"ep N"是遗忘训练的轮数。GA-Diff ep10 在遗忘人物上低于随机水平，它的生成全是乱码。没有微调过的原始 LLaVA 在遗忘人物上是 0.21。</p>
+  </div>
+  <details>
+    <summary>七个模型分别是什么</summary>
+    <div class="tablewrap"><table>
+      <thead><tr><th>模型</th><th>做法</th></tr></thead>
+      <tbody>
+        <tr><td class="name">Full（Vanilla）</td><td>LLaVA-1.5-7B 在全部 500 人上微调，没有做遗忘。是"完全知道"的上限。</td></tr>
+        <tr><td class="name">Oracle</td><td>同样的训练配方，只在 475 个 retain 人物上训练。是"完全不知道"的下限。</td></tr>
+        <tr><td class="name">IDK ep10</td><td>把遗忘人物的问题微调成回答"不知道"一类的拒答句，同时在 retain 上保持正常回答。</td></tr>
+        <tr><td class="name">NPO ep10</td><td>对遗忘数据做 Negative Preference Optimization，同时在 retain 上保持。</td></tr>
+        <tr><td class="name">GA-Diff ep2 / ep10</td><td>对遗忘数据做梯度上升、对 retain 做梯度下降，分别训练 2 轮和 10 轮。</td></tr>
+        <tr><td class="name">KL-Min ep3</td><td>对遗忘数据做梯度上升，同时用 KL 散度约束 retain 上的输出不偏离原模型。</td></tr>
+      </tbody>
+    </table></div>
+  </details>
+  <details>
+    <summary>术语速查</summary>
+    <dl class="defs">
+      <dt>原始问法</dt><dd>训练时使用的问答格式，只有图片和问题。</dd>
+      <dt>rationale</dt><dd>模型应要求写出的结构化推理文本。它不等于模型的内部推理。</dd>
+      <dt>骨架强制</dt><dd>JSON 的键和标点由程序写入，模型只填每个字段的值，所以不会有解析失败。</dd>
+      <dt>utility</dt><dd>模型的正常能力，用 retain 人物准确率和 GQA 准确率衡量。</dd>
+      <dt>t_star</dt><dd>第二轮的状态：retain 准确率下降不超过 0.05 的检查点里更新量最大的一个。</dd>
+      <dt>PUR / UID / RF</dt><dd>第三轮的指标：更新后高出同更新 Oracle 多少；其中由更新带来多少；恢复到 Full 的多少比例。</dd>
+      <dt>可行检查点</dt><dd>满足 retain、GQA 和乱码率三项约束的检查点。</dd>
+      <dt>口径 A / 口径 B</dt><dd>第三轮的两种 utility 约束。A：只要求被攻击模型自己的 retain 下降不超过预算，是任务书的定义。B：同一个更新对被攻击模型、Full、Oracle 都不超预算，是看过结果后加的敏感性分析。</dd>
+    </dl>
+  </details>
+</section>
+
+<section>
+  <h2>三轮实验</h2>
+  <div class="rounds">
+
+    <div class="round">
+      <div class="n">01</div>
+      <div class="body">
+        <div class="hd"><h3>四组重学对照</h3><span class="pill done">已完成 · 11 月 16 日</span></div>
+        <p class="col">用 5 个遗忘人物的数据做少量微调，能否让另外 20 个遗忘人物的知识也回来？如果能，是因为相关事实重新激活了残留的人物知识，还是任何微调都会这样？</p>
+        <p class="col">四组数据各有 5 张图、77 个问答，学习率 1e-4，训练 5 轮：真实标签、把答案在 5 人之间打乱的随机标签、5 个 retain 人物、5 张 GQA 图上与人物无关的问答。每轮后在 20 个未参与的遗忘人物上测十选一。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>模型</th><th class="num">真实标签</th><th class="num">随机标签</th><th class="num">retain 人物</th><th class="num">无关 VQA</th></tr></thead>
+          <tbody>
+            <tr><td class="name">Oracle</td><td class="num">−0.07*</td><td class="num">−0.07*</td><td class="num ns">−0.03</td><td class="num ns">−0.01</td></tr>
+            <tr><td class="name">NPO</td><td class="num sig">+0.13*</td><td class="num ns">−0.03</td><td class="num sig">+0.14*</td><td class="num sig">+0.09*</td></tr>
+            <tr><td class="name">GA-Diff ep2</td><td class="num sig">+0.10*</td><td class="num ns">+0.01</td><td class="num sig">+0.19*</td><td class="num sig">+0.10*</td></tr>
+            <tr><td class="name">KL-Min</td><td class="num sig">+0.11*</td><td class="num ns">+0.05</td><td class="num sig">+0.19*</td><td class="num sig">+0.15*</td></tr>
+            <tr><td class="name">GA-Diff ep10</td><td class="num sig">+0.34*</td><td class="num sig">+0.24*</td><td class="num sig">+0.25*</td><td class="num sig">+0.22*</td></tr>
+            <tr><td class="name">IDK</td><td class="num">−0.32*</td><td class="num">−0.55*</td><td class="num">−0.23*</td><td class="num">−0.10*</td></tr>
+          </tbody>
+        </table></div>
+        <p class="note">Recovery AUC：第 0–5 轮十选一准确率增益的平均值。</p>
+        <ul class="col">
+          <li><b>对照组恢复得和真实标签差不多。</b>真实标签减无关 VQA 组的差：NPO +0.04，GA-Diff ep2 +0.00，KL-Min −0.05，都不显著为正。</li>
+          <li><b>Oracle 在任何一组都没有恢复。</b></li>
+          <li>GA-Diff ep10 的真实标签组比三个对照组都高（+0.09* 到 +0.12*），但它在三个对照组上同样大幅恢复。</li>
+          <li>IDK 的十选一准确率本来就有 0.88，微调后反而下降，所以它的增益为负。</li>
+          <li>在去掉受污染题目后的 141 题子集上，结论方向不变。</li>
+        </ul>
+        <div class="rewrite">
+          <p class="eyebrow">结论按事先约定的判据改写</p>
+          <p class="old">少量相关事实重新激活了残留的人物知识。</p>
+          <p class="new">轻量微调恢复了对仍然留在权重里的知识的通用访问，这种恢复不依赖微调数据是否与目标人物相关。</p>
+        </div>
+        <p class="col"><b>遗留的问题：这一轮的微调并不轻。</b>第 5 轮时 retain 准确率下降了 7 到 67 个点，取决于模型和数据组。所以这一轮只能说明强更新下可以恢复，不能称为保持 utility 的恢复。第三轮就是为了补这个缺口。</p>
+        <details>
+          <summary>第 5 轮时 retain 准确率的下降（按模型和数据组）</summary>
+          <div class="tablewrap"><table>
+            <thead><tr><th>模型（更新前）</th><th class="num">真实标签</th><th class="num">随机标签</th><th class="num">retain 人物</th><th class="num">无关 VQA</th></tr></thead>
+            <tbody>
+              <tr><td class="name">Oracle（0.98）</td><td class="num">0.50</td><td class="num">0.63</td><td class="num">0.33</td><td class="num">0.23</td></tr>
+              <tr><td class="name">IDK（0.96）</td><td class="num">0.38</td><td class="num">0.67</td><td class="num">0.32</td><td class="num">0.19</td></tr>
+              <tr><td class="name">NPO（0.85）</td><td class="num">0.32</td><td class="num">0.52</td><td class="num">0.22</td><td class="num">0.17</td></tr>
+              <tr><td class="name">GA-Diff ep10（0.66）</td><td class="num">0.15</td><td class="num">0.28</td><td class="num">0.07</td><td class="num">0.19</td></tr>
+              <tr><td class="name">GA-Diff ep2（0.69）</td><td class="num">0.17</td><td class="num">0.32</td><td class="num">0.08</td><td class="num">0.08</td></tr>
+              <tr><td class="name">KL-Min（0.72）</td><td class="num">0.28</td><td class="num">0.37</td><td class="num">0.10</td><td class="num">0.07</td></tr>
+            </tbody>
+          </table></div>
+          <p class="note">由报告里两位小数的准确率相减得到，有约 ±0.01 的舍入误差。</p>
+        </details>
+      </div>
+    </div>
+
+    <div class="round">
+      <div class="n">02</div>
+      <div class="body">
+        <div class="hd"><h3>推理路径审计</h3><span class="pill done">已完成 · 11 月 18 日</span></div>
+        <p class="col">让模型先写一段结构化的推理（rationale）再回答，会不会把残留知识带出来？最终答案拒答或答错时，rationale 里是否已经泄漏了身份或属性？无关微调之后，知识是从哪个环节重新变得可访问的？</p>
+        <details>
+          <summary>怎么做的</summary>
+          <ul class="col">
+            <li>四种提示：A 直接回答；B 写三段 rationale（视觉证据、身份假设、知识检索）再答；C 先列三个候选身份再答；D 写完 rationale 后从十个字母选项里选。</li>
+            <li>rationale 用骨架强制生成。主读数仍是句子似然十选一，可以在 rationale 的每一段之后读一次。</li>
+            <li>无关 VQA 更新做了学习率扫描（1e-5、2e-5、5e-5、1e-4，各 5 轮），Oracle 接受同样的更新作对照。</li>
+            <li>每个模型另做 60 题的干预：替换 rationale 里的身份、替换检索段、换成别的模型写的 rationale。</li>
+            <li>生成文本上的泄漏标签由规则给出，没有用 LLM 评判。</li>
+          </ul>
+        </details>
+
+        <div class="stack col">
+          <p><b>写 rationale 没有让任何模型多暴露知识。</b>写完三段之后减去写之前的准确率：Full −0.24*，IDK −0.21*，GA-Diff ep2 −0.11*，Oracle −0.06*，KL-Min −0.03，NPO +0.00。把 rationale 里的姓名和答案遮掉，结果几乎不变。</p>
+          <p><b>暴露残留知识的是换一种问法，以及把姓名题和属性题分开看。</b></p>
+        </div>
+        <div class="panel">
+          <h3>高出 Oracle 多少，取决于怎么问</h3>
+          <div class="legend"><span><i class="mk hollow"></i>训练时的原始问法</span><span><i class="mk s1"></i>加一句"直接回答"</span><span><i class="mk refl"></i>与 Oracle 持平</span></div>
+          <div class="tracks" id="c2a"></div>
+          <p class="cap">全部 186 题上相对 Oracle 的准确率差。NPO 和 GA-Diff ep2 在原始问法下与 Oracle 不可区分，换一句提示就显著高出。</p>
+        </div>
+        <div class="panel">
+          <h3>高出 Oracle 多少，取决于问什么</h3>
+          <div class="legend"><span><i class="mk s3"></i>姓名题（19 题）</span><span><i class="mk s2"></i>九类属性题（167 题）</span><span><i class="mk refl"></i>与 Oracle 持平</span></div>
+          <div class="tracks" id="c2b"></div>
+          <p class="cap">"直接回答"提示下相对 Oracle 的准确率差。NPO、GA-Diff ep2、KL-Min 都认得出人，但属性题接近 Oracle，只有 NPO 的属性题也显著高出。</p>
+        </div>
+
+        <ul class="col">
+          <li><b>IDK 的拒答是绑定在训练问法上的输出闸门。</b>原始问法下拒答 100%、生成答对 0；加一句提示后拒答 3%、生成答对 0.33（Full 0.41，Oracle 0.15）。</li>
+          <li><b>rationale 文本本身是个弱通道。</b>Full 只在 2% 的 rationale 里写出正确姓名。它会编一个假名，再把真实属性挂在假名上。"rationale 泄漏而最终答案不对"的比例，所有模型都与 Oracle 没有差别。</li>
+          <li><b>模型写下的身份不是它回答属性题时依赖的东西。</b>把 rationale 里的身份换成另一个人，属性题答案基本不变（−0.04 到 +0.04，只有 IDK −0.15*）。把检索段换成错误属性，95–100% 的题答案跟着变，Oracle 也一样。</li>
+          <li><b>属性知识绑定在人脸图像上，不经由姓名。</b>不给图像时所有模型都回到 Oracle 水平。即使告诉模型正确姓名也只有 0.22–0.33（Oracle 0.26），在它们训练过的 retain 人物上同样如此。</li>
+          <li><b>Oracle 在 7 种问法、20 个更新检查点下都在 0.21–0.28。</b>同样的提示和同样的更新没有让它获得目标知识。</li>
+        </ul>
+
+        <div class="panel">
+          <h3>无关更新之后：把 utility 代价算进去</h3>
+          <div class="legend"><span><i class="mk hollow"></i>更新前</span><span><i class="mk s1"></i>t_star：retain 下降不超过 0.05</span><span><i class="mk s2"></i>lr 1e-4 第 1 轮，不设约束</span><span><i class="mk band"></i>Oracle 在 20 个检查点上的范围</span></div>
+          <div class="tracks" id="c4"></div>
+          <p class="cap">原始问法下的十选一准确率，右侧是两个更新点各自的 retain 下降。把 retain 损失限制在 5 个点以内时，只有 KL-Min 的准确率明显上升（0.22 → 0.42，高出同更新 Oracle +0.18*，其中 +0.22* 由更新带来）。NPO、GA-Diff ep10 和 IDK 的明显变化出现在代价更大的更新里。</p>
+        </div>
+        <ul class="col">
+          <li>GA-Diff ep2 的结果取决于选检查点的规则：按"更新量最大"是 +0.04（不显著），按"开发人物上最好"是 +0.12*，因为恢复在第 1–2 轮最高、之后回落。</li>
+          <li>IDK 的拒答闸门在约束内没有打开（拒答 0.95）。retain 下降约 0.10 的更新才打开它。</li>
+          <li>NPO 恢复的只是原始问法。"直接回答"提示下，更新前后没有变化。</li>
+        </ul>
+
+        <div class="box">
+          <p class="eyebrow">触发了两条预设的停止条件，所以没有扩展到其他划分</p>
+          <ul>
+            <li><b>自由生成 JSON 的解析失败率超过 5%：</b>KL-Min 11.3%，GA-Diff ep10 100%，其余 0–4.8%。主分析用骨架强制，不受影响。</li>
+            <li><b>选项排列导致超过 5 个点的波动：</b>D 条件的字母选择极差最高 0.108。而且连 Full 的准确率也只有 0.15，模型不使用给出的选项，这个条件不能作为读数。</li>
+          </ul>
+        </div>
+        <p class="note col">标签复核：另由 Claude 逐条读了 162 条抽样，预设标签的一致率是 97.5–99.4%。这不是人工复核，留给人工的列是空的。</p>
+      </div>
+    </div>
+
+    <div class="round">
+      <div class="n">03</div>
+      <div class="body">
+        <div class="hd"><h3>utility 约束下的恢复</h3><span class="pill done">已完成 · 11 月 18 日</span></div>
+        <p class="col">在更新数据不含目标人物信息、并且 retain 准确率下降不超过 2、5 或 10 个点的条件下，遗忘模型是否仍然比接受同样更新的 Oracle 暴露出更多目标知识？</p>
+        <p class="col">7 个模型各用 7 个学习率（1e-6 到 1e-4）在无关 VQA 上更新 100 个成功步，保存 9 个检查点，连同更新前共 448 个检查点。20 个测试人物分成 5 个验证人物和 15 个最终测试人物。攻击配置只在验证人物上选，选定并存档（19:02 UTC）之后才打开最终测试人物的结果（19:10 UTC）。下面的数字都来自 15 个最终测试人物（138 题）。</p>
+        <div class="box">
+          <p class="eyebrow">结论取决于约束谁的 utility</p>
+          <p>任务书只约束被攻击模型自己的 retain（下称<b>口径 A</b>）。按这个口径给 GA-Diff ep2 和 KL-Min 选出的更新（lr 1e-4，10 步和 20 步）几乎不伤它们自己：它们的 retain 起点只有 0.69 和 0.72，而强更新会把所有模型的 retain 拉到差不多的水平。同一个更新却让 Full 掉 10 和 22 个点，让 Oracle 掉 14 和 26 个点。</p>
+          <p>要求同一更新对被攻击模型、Full、Oracle 都不超预算（下称<b>口径 B</b>）时，结论明显变弱。口径 B 是看过最终测试结果之后才加的，只能算敏感性分析。</p>
+        </div>
+        <div class="panel">
+          <h3>同一个更新，三个模型付出的代价</h3>
+          <div class="legend"><span><i class="mk s1"></i>被攻击的遗忘模型</span><span><i class="mk s2"></i>Full</span><span><i class="mk s3"></i>Oracle</span><span><i class="mk refl"></i>5 个点的预算</span></div>
+          <div class="tracks" id="c5"></div>
+          <p class="cap">口径 A 在 5 个点预算下为每个方法选出的更新，三个模型各自相对更新前的 retain 准确率下降。GA-Diff ep2 和 KL-Min 的更新只对它们自己"无损"。</p>
+        </div>
+        <div class="panel">
+          <h3>高出同更新 Oracle 多少：两种口径</h3>
+          <div class="legend"><span><i class="mk hollow"></i>更新前</span><span><i class="mk s1"></i>口径 A</span><span><i class="mk s2"></i>口径 B</span><span><i class="mk refl"></i>与 Oracle 持平</span></div>
+          <div class="tracks" id="c6"></div>
+          <p class="cap">5 个点预算下的 PUR：更新后遗忘模型的十选一准确率减去接受同一更新的 Oracle 的准确率。KL-Min 的 +0.20* 只在口径 A 下存在。</p>
+        </div>
+        <div class="tablewrap"><table class="r3">
+          <thead><tr><th>方法</th><th class="num">更新前</th><th class="num">口径 A：2 / 5 / 10 点</th><th class="num">口径 B：2 / 5 / 10 点</th><th>归类</th></tr></thead>
+          <tbody>
+            <tr><td class="name">IDK</td><td class="num sig">+0.59*</td><td class="num sig">+0.59* / +0.59* / +0.56*</td><td class="num sig">+0.59* / +0.59* / +0.59*</td><td>更新前就可访问；拒答闸门在 5 个点预算内被打开</td></tr>
+            <tr><td class="name">NPO</td><td class="num ns">+0.06</td><td class="num">+0.04 / +0.09*† / +0.17*</td><td class="num">+0.04 / +0.09*† / +0.15*</td><td>10 个点预算内更新后可访问，两种口径都成立；5 个点边缘</td></tr>
+            <tr><td class="name">GA-Diff ep2</td><td class="num ns">+0.07</td><td class="num sig">+0.19* / +0.19* / +0.24*</td><td class="num">+0.08 / +0.11*† / +0.11*†</td><td>口径 A 下 2 个点预算内即可访问；口径 B 下只剩边缘信号</td></tr>
+            <tr><td class="name">KL-Min</td><td class="num ns">−0.06</td><td class="num sig">+0.20* / +0.20* / +0.20*</td><td class="num ns">−0.02 / −0.03 / −0.03</td><td>口径 A 下显著；口径 B 下没有检测到恢复</td></tr>
+            <tr><td class="name">GA-Diff ep10</td><td class="num">−0.22*</td><td class="num">−0.22* / −0.22* / −0.22*</td><td class="num">−0.22* / −0.22* / −0.22*</td><td>预算内没有变化；预算外只修复了生成能力</td></tr>
+          </tbody>
+        </table></div>
+        <p class="note">PUR，15 个最终测试人物。* 表示 95% 区间不含 0；† 表示边缘：符号翻转检验或 Holm 校正后的 p 大于 0.05。口径 A 是事先规定的验证性分析，口径 B 是事后的敏感性分析。</p>
+        <ul class="col">
+          <li><b>GA-Diff ep2：</b>lr 1e-4 × 10 步后准确率 0.357 → 0.464，同更新的 Oracle 0.286 → 0.270。PUR +0.19* [0.10, 0.29]，其中 +0.12* 是这次更新带来的，15 人中 12 人为正，六条标准全过。</li>
+          <li><b>KL-Min：</b>lr 1e-4 × 20 步后 0.222 → 0.462，PUR +0.20* [0.11, 0.30]，由更新带来 +0.27*。六条标准里"不只是乱码减少"按字面没过：乱码答案从 4 题降到 0 题，降幅 0.029 超过 0.02 的阈值。去掉这 4 题重算，结果不变。</li>
+          <li><b>NPO：</b>2 个点预算内没有恢复。10 个点预算下 +0.17* [0.09, 0.24]；口径 B 下换成对 Full 和 Oracle 只降约 4 个点的更新（lr 1e-4 × 5 步），仍是 +0.15*，15 人中 13 人为正。</li>
+          <li><b>GA-Diff ep10：</b>所有可行检查点上都没有变化。只有 lr 1e-4 第 20 步以后准确率升到 0.18–0.30，这时乱码答案从 100% 降到 13–72%，retain 又掉 16–19 个点，而准确率只回到 Oracle 的水平（PUR 区间含 0）。这是生成能力的修复，不是目标知识的恢复。</li>
+        </ul>
+        <p class="col"><b>IDK：恢复的是生成，不是知识。</b>十选一在更新前就是 0.872（Oracle 0.286，Full 0.974），更新没有让它再升。变化出在拒答闸门上。lr 1e-4 × 5 步的更新之后：</p>
+        <div class="stats">
+          <div class="stat"><div class="v">0.13</div><div class="k">原始问法下的拒答率，更新前 1.00</div></div>
+          <div class="stat"><div class="v">0.61</div><div class="k">生成答案含正确值的比例，更新前 0；同更新 Oracle 0.18，Full 0.83</div></div>
+          <div class="stat"><div class="v">3.3 点</div><div class="k">IDK 自身的 retain 下降；Full 4.4 点，Oracle 4.2 点</div></div>
+          <div class="stat"><div class="v">+0.43*</div><div class="k">生成答对率减去同更新的 Oracle</div></div>
+        </div>
+        <p class="col">这次更新对三个模型都在 5 个点以内，所以这条结论两种口径都成立。闸门打开得很突然：lr 1e-4 下在第 2 到第 5 步之间，lr 5e-5 下在第 5 到第 10 步之间。2 个点预算内闸门基本完好（拒答 0.91）。</p>
+        <ul class="col">
+          <li><b>没有对所有方法都有效的通用更新。</b>对五个方法都可行的配置只有 22–23 个，全在 lr ≤ 2e-5、10 步以内，选出的 lr 1e-5 × 5 步基本是空操作。去掉 GA-Diff ep10 后，lr 5e-5 × 20 步让 IDK、NPO、GA-Diff ep2 同时显著，KL-Min 不显著，而这个更新让 Full 和 Oracle 掉 10 和 11 个点。</li>
+          <li><b>为每个方法单独选配置，比通用配置多出的恢复</b>集中在 GA-Diff ep2（+0.07 到 +0.16）和 KL-Min（+0.13 到 +0.26）。NPO 只在 10 个点预算下多 +0.11*。</li>
+          <li><b>恢复到 Full 的比例</b>（口径 A）：IDK 0.85–0.90，KL-Min 0.37，GA-Diff ep2 0.32（10 个点预算 0.44），NPO 0.13（5 个点）和 0.27（10 个点）。</li>
+          <li><b>除 IDK 外，自由生成里几乎看不到恢复。</b>NPO、GA-Diff ep2、KL-Min 的生成答对率从 0.13–0.16 升到 0.21–0.23，同更新的 Oracle 是 0.14–0.20，67–79% 的回答仍是编的。这三个模型暴露的是"在给定的候选里偏向正确答案"，不是直接说出答案。</li>
+          <li><b>Oracle 在全部 63 个更新后检查点上</b>都在 0.238–0.269（更新前 0.265），没有任何更新让它获得目标知识。</li>
+        </ul>
+        <details>
+          <summary>设置、执行情况和与任务书的偏差</summary>
+        <div class="tablewrap"><table>
+          <thead><tr><th>项目</th><th>内容</th></tr></thead>
+          <tbody>
+            <tr><td class="name">更新数据</td><td>第一轮的无关 VQA 组：5 张 GQA 图上的 77 个问答</td></tr>
+            <tr><td class="name">学习率</td><td class="mono">1e-6 · 2e-6 · 5e-6 · 1e-5 · 2e-5 · 5e-5 · 1e-4</td></tr>
+            <tr><td class="name">检查点</td><td>第 0、1、2、5、10、20、40、60、80、100 个成功更新步</td></tr>
+            <tr><td class="name">规模</td><td>7 个模型 × 7 个学习率 = 49 次更新，每次评测 9 个检查点</td></tr>
+            <tr><td class="name">每个检查点</td><td>遗忘人物十选一（186 题）和自由生成、retain 十选一（241 题）、GQA（400 题，宽松和严格两种匹配）</td></tr>
+            <tr><td class="name">精度</td><td>fp16 加动态 loss scaling。所用显卡不原生支持 bf16</td></tr>
+          </tbody>
+        </table></div>
+        <ul class="col">
+          <li>"成功更新步"只计真正执行了参数更新的步。fp16 下偶尔会因梯度溢出跳过一步，跳过的步被记录，并用同一个 batch 重试，所以各模型在每个成功步上看到的数据完全一致。</li>
+          <li>学习率从设定值线性衰减到 0，没有 warmup。原训练脚本的 warmup 会让第 1 步的学习率为 0。所以同一学习率下的 9 个检查点在同一条轨迹上，第 20 步的检查点不等于"只训 20 步"。</li>
+          <li>49 次更新都正好完成 100 个成功步，没有放弃任何 batch，看到的训练 token 完全相同（234,210 个，其中答案 3,450 个）。每次跳过 1–5 个微步，GA-Diff ep10 在较大学习率下 8–10 个。</li>
+          <li>任务书要求的"至少 5 种选项排列"换成了 5 组干扰项：似然读数逐句打分，结果与选项顺序无关。</li>
+          <li>GQA 的可行性用宽松匹配。强更新后严格匹配大幅下降，是因为模型学会了更新数据的整句回答风格（答案平均从 1 个词左右变成 2–5 个词），不是能力下降。</li>
+        </ul>
+        </details>
+        <details>
+          <summary>事先固定并存档的规则（计划写于 09:54 UTC，配置冻结于 19:02 UTC，最终测试人物解封于 19:10 UTC）</summary>
+          <ul class="col">
+            <li><b>可行检查点：</b>retain 准确率下降不超过预算，GQA 准确率下降不超过 0.02，输出乱码率上升不超过 0.02。</li>
+            <li><b>PUR：</b>更新后遗忘模型的准确率减去接受同样更新的 Oracle 的准确率。<b>UID：</b>PUR 减去更新前两者的差。<b>RF：</b>PUR 除以"更新后 Full 减 Oracle"。</li>
+            <li><b>人物划分：</b>20 个测试人物按 ID 的哈希固定分成 5 个验证人物（48 题）和 15 个最终测试人物（138 题）。攻击配置只在验证人物上选。</li>
+            <li><b>两种攻击：</b>自适应攻击为每个方法、每档预算各选一个可行检查点；通用攻击找一个对所有方法都可行的配置。</li>
+            <li><b>封存：</b>更新之后，最终测试人物的逐题结果写入封存文件，汇总脚本在配置冻结之前拒绝读取。</li>
+            <li><b>"可恢复"的六条标准：</b>PUR 大于 0；区间不含 0；满足预算；在 141 题稳健子集上方向一致；不只是乱码减少；Oracle 没有同样幅度的变化。</li>
+          </ul>
+        </details>
+        <details>
+          <summary>数据审计和冒烟测试</summary>
+        <ul class="col">
+          <li><b>数据审计通过。</b>77 条更新数据里，遗忘人物的姓名、属性值、答案句、十选一候选句的命中数都是 0。5 张更新图片与 500 张 benchmark 人物图、200 张 GQA 测试图都不重合。77 条里有 45 条提到泛指的人（如 man、snowboarder），没有附带姓名或属性。</li>
+          <li><b>冒烟测试通过</b>（NPO、Oracle、Full，学习率 2e-5）。三个模型都正好完成 100 个成功更新步，分别跳过 2、2、3 个微步，每个检查点上见过的训练 token 数完全相同。</li>
+          <li><b>更新前的评测复现了已知的静态准确率</b>，就是上面"七个模型的起点"那张图里的数字。</li>
+        </ul>
+        </details>
+        <details>
+          <summary>Oracle 只有一个种子：换成四个超参变体会怎样</summary>
+        <p class="col"><b>Oracle 只有一个种子。</b>另有 4 个用不同超参训练的 retain-only 模型，更新前的结果如下。主 Oracle 的 0.265 落在三个能正常工作的变体之间，没有异常偏低或偏高。但按事先存档的规则（retain 准确率与主 Oracle 相差 0.05 以内才算合格），没有一个变体合格。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Retain-only 模型</th><th class="num">遗忘人物</th><th class="num">retain</th><th class="num">GQA（宽松）</th></tr></thead>
+          <tbody>
+            <tr><td class="name">主 Oracle（lr 2e-5，10 轮）</td><td class="num">0.265</td><td class="num">0.979</td><td class="num">0.588</td></tr>
+            <tr><td class="name">变体：lr 1e-4，5 轮</td><td class="num">0.246</td><td class="num">0.914</td><td class="num">0.580</td></tr>
+            <tr><td class="name">变体：lr 2e-5，5 轮</td><td class="num">0.288</td><td class="num">0.640</td><td class="num">0.598</td></tr>
+            <tr><td class="name">变体：lr 5e-5，5 轮</td><td class="num">0.297</td><td class="num">0.806</td><td class="num">0.593</td></tr>
+            <tr><td class="name">变体：lr 5e-4，5 轮（训练发散）</td><td class="num">0.170</td><td class="num">0.227</td><td class="num">0.140</td></tr>
+          </tbody>
+        </table></div>
+        <p class="col">在选定的配置上把主 Oracle 换成三个能正常工作的变体（变体也接受同一个更新）：GA-Diff ep2（+0.14 到 +0.21）、KL-Min（+0.16 到 +0.18）、IDK，以及 NPO 在 10 个点预算下（+0.13 到 +0.16）的结论都不变，区间都不含 0。不稳的是 NPO 在 5 个点预算下的 +0.09*，换成任何一个变体都不显著。这些变体只换了超参、没换种子，不能代替多个 Oracle 种子。</p>
+        </details>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>各模型的失败模式</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>模型</th><th>模式</th><th>最关键的数字</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Oracle</td><td>没有目标知识的下限</td><td>所有问法、所有更新下 0.21–0.28</td></tr>
+      <tr><td class="name">Full</td><td>上限，未遗忘</td><td>0.98；写完 rationale 后降到 0.55</td></tr>
+      <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，知识基本完整</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次只让 retain 降 3 个点的无关更新后拒答 13%、生成答对 0.61</td></tr>
+      <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；10 个点预算内的无关更新后 +0.17*，对 Full 和 Oracle 也无损的更新下 +0.15*</td></tr>
+      <tr><td class="name">GA-Diff ep2</td><td>认得出人，属性接近 Oracle，个别属性低于 Oracle，retain 已受损</td><td>姓名题 +0.37*；生日 −0.24*；retain 0.69；无关更新后 +0.19*，但那次更新让 Full 和 Oracle 掉 10 和 14 个点</td></tr>
+      <tr><td class="name">KL-Min</td><td>更新前最接近 Oracle，强的无关更新能把它推到 Oracle 之上</td><td>更新前 −0.04（不显著）；lr 1e-4 × 20 步后 +0.20*，自身 retain 只降 0.01，但同一更新让 Full 和 Oracle 降 22 和 26 个点；对三者都不超预算的更新下 −0.02</td></tr>
+      <tr><td class="name">GA-Diff ep10</td><td>模型被破坏，不算遗忘成功</td><td>生成 100% 是乱码；准确率 0.07，低于 Oracle 也低于随机；预算外的更新修复了部分生成，准确率只回到 Oracle 水平</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">带正负号的数都是相对 Oracle 的差。</p>
+</section>
+
+<section>
+  <h2>可以说什么，不能说什么</h2>
+  <div class="two">
+    <div>
+      <h3>可以说</h3>
+      <ul>
+        <li>IDK 的拒答是绑定在训练问法上的输出行为，目标知识仍然可以通过似然读数和换提示后的生成访问到。</li>
+        <li>NPO、GA-Diff ep2、KL-Min 保留了把这张人脸对应到正确姓名的能力，高于 Oracle。</li>
+        <li>在这个模型上，要求写显式 rationale 不会提高目标知识的可访问性，对保有知识的模型反而降低。</li>
+        <li>最终答案会照抄 rationale 里陈述的属性，但 rationale 里陈述的身份对属性答案影响很小。</li>
+        <li>一次只让各模型 retain 降约 4 个点的无关更新，就能打开 IDK 的拒答闸门：生成答对率从 0 升到 0.61，高出同更新的 Oracle +0.43*。</li>
+        <li>NPO 在 10 个点预算内的无关更新后显著高于同更新的 Oracle，这个更新对 Full 和 Oracle 也不超预算时同样成立（+0.15*）。</li>
+        <li>KL-Min 和 GA-Diff ep2 在一次几乎不损失自身 retain 的无关更新后显著高于同更新的 Oracle（+0.20*、+0.19*），Oracle 在同一更新下没有变化。但这次更新让健康模型的 retain 掉 10 到 26 个点。</li>
+        <li>第一轮里，无关数据上的微调和真实标签上的微调恢复得差不多，Oracle 在任何一组都不恢复。</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="no">不能说</h3>
+      <ul>
+        <li>生成的 rationale 等同于模型真实的内部推理。</li>
+        <li>rationale 泄漏或不泄漏，证明了某个具体电路或层存储或删除了知识。项目里没有做任何内部表征分析。</li>
+        <li>"CoT 审计能发现强制选择发现不了的残留知识"。这里是反过来的，似然强制选择更灵敏。</li>
+        <li>"良性更新普遍会恢复被遗忘的知识"。不存在对所有方法都有效的通用更新；KL-Min 和 GA-Diff ep2 的恢复依赖一个对健康模型有破坏性的更新。</li>
+        <li>GA-Diff ep10 在更新后恢复了目标知识。它恢复的是生成能力，准确率只回到 Oracle 的水平。</li>
+        <li>某个方法"不可恢复"，或属性知识"已被删除"。只能说在受测的读数和更新范围内没有检测到。</li>
+        <li>这些结果代表所有多模态大模型或所有遗忘方法。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>已知限制</h2>
+  <ul class="col">
+    <li><b>一个模型、一个划分、一个种子、20 个测试人物。</b>按单个属性的结果每格只有 11–20 题。</li>
+    <li><b>Oracle 只有一个种子</b>，四个超参变体里没有一个达到事先定的合格线。</li>
+    <li><b>第一轮的更新是破坏性的</b>（retain 下降 7–67 个点）。第二轮里 lr 1e-4 第 1 轮的更新对多数模型也不满足 utility 约束。</li>
+    <li><b>第二轮的 t_star 是在全部 20 人上事后扫描出来的</b>，选检查点的规则会改变 GA-Diff ep2 的结论。第三轮用验证人物和最终测试人物的划分来解决这一点。</li>
+    <li><b>第三轮的最终测试人物并非完全没见过。</b>第二轮已经看过 20 人合并的恢复结果（4 个学习率 × 5 轮）。划分是事后按哈希规则做的，配置选择由代码在验证人物上完成。</li>
+    <li><b>泄漏标签没有经过人工复核</b>，只有规则和 Claude 的一遍通读。</li>
+    <li><b>GA-Diff ep10 的所有生成类指标没有意义</b>，它的输出全是乱码。</li>
+    <li><b>第三轮用的是 fp16 精度</b>，不是任务书优先要求的 bf16。</li>
+    <li><b>第三轮的 utility 约束只看被攻击模型自己</b>（任务书的定义）。对 Full 和 Oracle 也无损的口径 B 是看过最终测试结果之后才加的。</li>
+    <li><b>第三轮只有 5 个验证人物</b>，用它们选配置有噪声：NPO 的 PUR 从验证人物到最终测试人物缩小了一半以上。</li>
+    <li><b>第三轮只用了一种更新数据</b>：77 个问答，100 步相当于过了 5 遍多。强学习率对健康模型的损伤可能部分来自对这一小撮数据的过拟合，换成更大更杂的无关数据，口径 B 下的结论可能不同。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>等待决定的事</h2>
+  <p class="col">三轮都已完成，现在停下等指令，没有自动扩展到其他划分或其他模型。</p>
+  <ol class="col">
+    <li><b>论文用哪个 utility 定义。</b>口径 A 对应"部署方只监控自己模型的 utility"，结果更强；口径 B 更经得起追问，但在它之下只剩 IDK 和 NPO 的结论是清楚的。建议两个都报，主张以口径 B 能支持的为限。</li>
+    <li><b>是否先复现，再做 hidden-state 分析。</b>最适合做内部表征分析的是 IDK 的闸门坍塌：效应大，两种口径都成立，转变发生在很窄的步数区间。其次是 NPO。写成论文主结论之前，至少需要另一个划分和第二个 Oracle 种子。</li>
+    <li><b>是否测更温和的更新</b>：更大的无关数据、更多步、更小的学习率，看 KL-Min 和 GA-Diff ep2 在口径 B 下是否仍然不恢复。</li>
+    <li><b>是否把前两轮有区分度的部分扩展到其余四个划分。</b>建议做精简版：三种问法下的似然十选一（姓名题与属性题分开）、带 Oracle 同配置对照的学习率扫描、干预里的身份替换和 rationale 互换。去掉候选枚举、字母选择、采样和自由生成 JSON。</li>
+    <li><b>是否训练更多 Oracle 种子，以及是否做各模型的种子重训。</b>之前决定先不做。现在所有结论都只有一个种子支撑。</li>
+    <li><b>是否安排人工复核</b>第二轮的 162 条抽样。</li>
+    <li><b>Qwen 系列</b>建议放在四个划分之后。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>第三轮的三张图</h2>
+  <p class="note">图内文字是英文。原图在 <code>~/MMU/runs/utility_recovery_s0/figures/</code>，那里还有行为轨迹图 fig3 和两种口径的对比图 fig5。</p>
+  <figure>
+    <div class="frame"><img src="assets/ur_fig1.png" alt="五个遗忘方法各一幅散点图，横轴是被攻击模型自身的 retain 下降，纵轴是相对同更新 Oracle 的差，附上包络线和三条预算线" loading="lazy"></div>
+    <figcaption><b>恢复和 utility 代价的关系。</b>每个点是一个检查点（7 个学习率 × 9 步），横轴是被攻击模型自身的 retain 下降，纵轴是 PUR（全部 186 题，描述性）。Oracle 接受同一更新，所以它是零线。三条虚线是 2、5、10 个点的预算。注意横轴只算被攻击模型自己的代价，也就是口径 A。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/ur_fig2.png" alt="三档预算下每个方法的 PUR 柱状图，带置信区间和每个人物的点；右侧是 IDK 的拒答坍塌" loading="lazy"></div>
+    <figcaption><b>三档预算下的恢复量</b>（口径 A，检查点在验证人物上选，在 15 个最终测试人物上报告），每个灰点是一个人。右侧是 IDK 的拒答坍塌：实心柱是 PUR 最大的检查点，那里拒答完全没变；空心柱是生成答对最多的检查点。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/ur_fig4.png" alt="四个学习率下 IDK 的拒答率、生成答对率、Oracle 的生成答对率和 IDK 的 retain 准确率随更新步数的变化" loading="lazy"></div>
+    <figcaption><b>IDK 的拒答闸门沿着更新突然打开。</b>四个学习率下 IDK 的拒答率和生成答对率、Oracle 的生成答对率，以及 IDK 的 retain 准确率（全部 186 题）。空心橙点表示 retain 下降超过 5 个点。</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>第二轮的三张图</h2>
+  <p class="note">图内文字是英文。原图在 <code>~/MMU/runs/cot_audit_s0/figures/</code>。</p>
+  <figure>
+    <div class="frame"><img src="assets/fig3.png" alt="每个模型在各种问法和 rationale 各阶段下的十选一准确率，上排更新前，下排 t_star" loading="lazy"></div>
+    <figcaption><b>写 rationale 的过程中准确率不升反降。</b>每个模型在原始问法（bare）、直接回答（A）、rationale 各阶段（B0–B3）和写完后再用原问法追问（T）下的十选一准确率。上排是更新前，下排是 t_star。深灰线是 Full 上限，浅灰线是同一状态下的 Oracle 下限。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/fig5.png" alt="无关 VQA 更新的学习率扫描，每个学习率一条线，横轴轮次，纵轴相对 Oracle 的差" loading="lazy"></div>
+    <figcaption><b>恢复在第 1–2 轮最高，之后回落。</b>无关 VQA 更新的学习率扫描，每个学习率一条线，纵轴是相对接受同样更新的 Oracle 的差。实心点表示 retain 下降不超过 0.05。KL-Min 只在 lr 1e-4 下明显恢复，而且那时 retain 几乎没有损失。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/fig6.png" alt="按十类属性拆开的残留热力图，蓝色高于 Oracle，红色低于 Oracle" loading="lazy"></div>
+    <figcaption><b>姓名和出生地最容易残留。</b>按十类属性拆开的相对 Oracle 的差（原始问法、直接回答、写完 rationale）。蓝色高于 Oracle，红色低于 Oracle，粗体表示显著。生日等属性在个别模型上低于 Oracle。每格只有 11–20 题。</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>结果文件在哪</h2>
+  <p class="note">下面的目录都在实验服务器上。这个仓库只包含本页面和页面里的图，不含代码、模型和逐题结果。</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>轮次</th><th>目录</th><th>先看哪个文件</th></tr></thead>
+    <tbody>
+      <tr><td class="name">第一轮</td><td><code>~/MMU/runs/ctrl/</code></td><td><code>ctrl_report_s0.txt</code>，稳健性检查在 <code>ctrl_robust_s0.txt</code></td></tr>
+      <tr><td class="name">第二轮</td><td><code>~/MMU/runs/cot_audit_s0/</code></td><td><code>cot_audit_report.md</code>；全部表格在 <code>cot_audit_tables.txt</code>，学习率扫描在 <code>scan_report.txt</code>，干预在 <code>causal_report.txt</code></td></tr>
+      <tr><td class="name">第三轮</td><td><code>~/MMU/runs/utility_recovery_s0/</code></td><td><code>utility_recovery_report.md</code>；全部表格在 <code>tables.txt</code>，每个设定的最终测试结果在 <code>metrics_test.csv</code>，逐检查点记录在 <code>checkpoint_metrics.jsonl</code>，图在 <code>figures/</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>。</p>
+</section>
+
+<footer>这个页面是静态快照，最后一次更新在第三轮完成之后（2026-11-19）。</footer>
+
+</div>
+<script>
+/* accuracy tracks drawn with plain elements: one row per model, markers placed by percentage, so text stays readable at any width */
+function tracks(id, cfg) {
+  var el = document.getElementById(id); if (!el) return;
+  var span = cfg.max - cfg.min, pct = function (v) { return ((v - cfg.min) / span * 100).toFixed(2) + "%"; };
+  var fmt = cfg.fmt || function (v) { return (cfg.signed && v > 0 ? "+" : "") + v.toFixed(2); };
+  var h = '<div class="trow axis"><div class="lab"></div><div class="track">';
+  cfg.ticks.forEach(function (t, i) { h += '<span class="tick' + (i === 0 ? " first" : i === cfg.ticks.length - 1 ? " last" : "") + '" style="left:' + pct(t) + '">' + (cfg.tickfmt ? cfg.tickfmt(t) : fmt(t)) + "</span>"; });
+  h += '</div><div class="vals"></div></div>';
+  cfg.rows.forEach(function (r) {
+    h += '<div class="trow"><div class="lab">' + r.label + (r.sub ? "<small>" + r.sub + "</small>" : "") + '</div><div class="track" role="img" aria-label="' + r.label + "：" +
+      r.pts.map(function (p) { return cfg.series[p.s].name + " " + fmt(p.v); }).join("，") + '">';
+    (r.bands || cfg.bands || []).forEach(function (b) { h += '<span class="bandr" style="left:' + pct(b[0]) + ";width:" + ((b[1] - b[0]) / span * 100).toFixed(2) + '%"></span>'; });
+    (cfg.refs || []).forEach(function (v) { h += '<span class="ref" style="left:' + pct(v) + '"></span>'; });
+    if (r.link) { var a = Math.min(r.link[0], r.link[1]), b = Math.max(r.link[0], r.link[1]); h += '<span class="link" style="left:' + pct(a) + ";width:" + ((b - a) / span * 100).toFixed(2) + '%"></span>'; }
+    r.pts.forEach(function (p) {
+      h += '<span class="pt ' + cfg.series[p.s].cls + '" tabindex="0" style="left:' + pct(p.v) + '" data-tip="' + cfg.series[p.s].name + " " + fmt(p.v) + (p.sig ? " *" : "") + (p.note ? "，" + p.note : "") + '"></span>';
+    });
+    h += '</div><div class="vals">' + (r.vals || r.pts.map(function (p) { return fmt(p.v) + (p.sig ? "*" : ""); }).join(" · ")) + "</div></div>";
+  });
+  el.innerHTML = h;
+}
+</script>
+<script>
+(function () {
+  var plain = function (v) { return v.toFixed(2).replace(/\.?0+$/, ""); };
+  var sgn = function (v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2).replace(/\.?0+$/, ""); };
+  var val = function (v) { return (v < 0 ? "−" : "") + Math.abs(v).toFixed(2); };
+  var sval = function (v) { return (v < 0 ? "−" : "+") + Math.abs(v).toFixed(2); };
+
+  tracks("c0", { min: 0, max: 1, ticks: [0, 0.25, 0.5, 0.75, 1], tickfmt: plain, fmt: val, refs: [0.10],
+    series: [{ name: "遗忘人物", cls: "s1" }, { name: "retain 人物", cls: "s2" }],
+    rows: [
+      { label: "Full", sub: "未遗忘，上限", pts: [{ s: 1, v: 0.980 }, { s: 0, v: 0.981 }], vals: "遗忘 0.98 · retain 0.98" },
+      { label: "Oracle", sub: "从未见过，下限", pts: [{ s: 1, v: 0.979 }, { s: 0, v: 0.265 }], vals: "遗忘 0.26 · retain 0.98" },
+      { label: "IDK", pts: [{ s: 1, v: 0.956 }, { s: 0, v: 0.882 }], vals: "遗忘 0.88 · retain 0.96" },
+      { label: "NPO", pts: [{ s: 1, v: 0.851 }, { s: 0, v: 0.347 }], vals: "遗忘 0.35 · retain 0.85" },
+      { label: "GA-Diff ep2", pts: [{ s: 1, v: 0.694 }, { s: 0, v: 0.316 }], vals: "遗忘 0.32 · retain 0.69" },
+      { label: "KL-Min", pts: [{ s: 1, v: 0.721 }, { s: 0, v: 0.223 }], vals: "遗忘 0.22 · retain 0.72" },
+      { label: "GA-Diff ep10", pts: [{ s: 1, v: 0.663 }, { s: 0, v: 0.071 }], vals: "遗忘 0.07 · retain 0.66" }
+    ] });
+
+  var how = [["Full", 0.72, 1, 0.64, 1], ["IDK", 0.62, 1, 0.56, 1], ["NPO", 0.08, 0, 0.21, 1], ["GA-Diff ep2", 0.05, 0, 0.09, 1], ["KL-Min", -0.04, 0, 0.01, 0], ["GA-Diff ep10", -0.19, 1, -0.17, 1]];
+  tracks("c2a", { min: -0.3, max: 1, ticks: [-0.25, 0, 0.25, 0.5, 0.75, 1], tickfmt: sgn, fmt: sval, refs: [0],
+    series: [{ name: "原始问法", cls: "hollow" }, { name: "直接回答", cls: "s1" }],
+    rows: how.map(function (r) { return { label: r[0], link: [r[1], r[3]], pts: [{ s: 0, v: r[1], sig: r[2] }, { s: 1, v: r[3], sig: r[4] }],
+      vals: sval(r[1]) + (r[2] ? "*" : "") + " → " + sval(r[3]) + (r[4] ? "*" : "") }; }) });
+
+  var what = [["Full", 0.91, 1, 0.61, 1], ["IDK", 0.91, 1, 0.52, 1], ["NPO", 0.57, 1, 0.17, 1], ["GA-Diff ep2", 0.37, 1, 0.05, 0], ["KL-Min", 0.31, 1, -0.03, 0], ["GA-Diff ep10", 0.03, 0, -0.20, 1]];
+  tracks("c2b", { min: -0.3, max: 1, ticks: [-0.25, 0, 0.25, 0.5, 0.75, 1], tickfmt: sgn, fmt: sval, refs: [0],
+    series: [{ name: "姓名题", cls: "s3" }, { name: "属性题", cls: "s2" }],
+    rows: what.map(function (r) { return { label: r[0], pts: [{ s: 1, v: r[3], sig: r[4] }, { s: 0, v: r[1], sig: r[2] }],
+      vals: "姓名 " + sval(r[1]) + (r[2] ? "*" : "") + " · 属性 " + sval(r[3]) + (r[4] ? "*" : "") }; }) });
+
+  var upd = [["IDK", 0.88, 0.81, 0.79, "0.043", "0.16"], ["NPO", 0.35, 0.38, 0.50, "0.041", "0.16"], ["GA-Diff ep2", 0.32, 0.36, 0.47, "0.046", "0.052"], ["KL-Min", 0.22, 0.42, 0.41, "0.030", "0.00"], ["GA-Diff ep10", 0.07, 0.07, 0.33, "0.044", "0.14"]];
+  tracks("c4", { min: 0, max: 1, ticks: [0, 0.25, 0.5, 0.75, 1], tickfmt: plain, fmt: val, bands: [[0.24, 0.27]],
+    series: [{ name: "更新前", cls: "hollow" }, { name: "t_star", cls: "s1" }, { name: "lr 1e-4 第 1 轮", cls: "s2" }],
+    rows: upd.map(function (r) { return { label: r[0], link: [r[1], r[2]],
+      pts: [{ s: 2, v: r[3], note: "retain 降 " + r[5] }, { s: 0, v: r[1] }, { s: 1, v: r[2], note: "retain 降 " + r[4] }],
+      vals: "t_star " + val(r[1]) + " \u2192 " + val(r[2]) + " · retain 降 " + r[4] + "<br>lr 1e-4 " + val(r[3]) + " · retain 降 " + r[5] + " " }; }) });
+
+  /* round 3: retain drop of the attacked model, Full and Oracle under the update chosen at the 5-point budget (definition A) */
+  var sv3 = function (v) { return (v < 0 ? "−" : "+") + Math.abs(v).toFixed(3); };
+  var cost = [["IDK", "lr 2e-6 × 80 步", 0.010, 0.006, -0.006], ["NPO", "lr 1e-4 × 2 步", 0.029, 0.018, 0.002], ["GA-Diff ep2", "lr 1e-4 × 10 步", -0.005, 0.103, 0.143],
+              ["KL-Min", "lr 1e-4 × 20 步", 0.012, 0.221, 0.261], ["GA-Diff ep10", "lr 2e-5 × 2 步", -0.006, 0.007, -0.003]];
+  tracks("c5", { min: -0.03, max: 0.3, ticks: [0, 0.1, 0.2, 0.3], tickfmt: plain, fmt: sv3, refs: [0.05],
+    series: [{ name: "被攻击模型", cls: "s1" }, { name: "Full", cls: "s2" }, { name: "Oracle", cls: "s3" }],
+    rows: cost.map(function (r) { return { label: r[0], sub: r[1], pts: [{ s: 2, v: r[4] }, { s: 1, v: r[3] }, { s: 0, v: r[2] }],
+      vals: "自身 " + sv3(r[2]) + " · Full " + sv3(r[3]) + " · Oracle " + sv3(r[4]) }; }) });
+
+  /* round 3: PUR on the 15 final-test persons before the update and at the 5-point budget under definitions A and B */
+  var pur = [["IDK", 0.587, 1, 0.586, 1, 0.586, 1], ["NPO", 0.057, 0, 0.090, 1, 0.090, 1], ["GA-Diff ep2", 0.071, 0, 0.194, 1, 0.109, 1],
+             ["KL-Min", -0.064, 0, 0.203, 1, -0.025, 0], ["GA-Diff ep10", -0.220, 1, -0.217, 1, -0.217, 1]];
+  tracks("c6", { min: -0.3, max: 0.7, ticks: [-0.2, 0, 0.2, 0.4, 0.6], tickfmt: sgn, fmt: sval, refs: [0],
+    series: [{ name: "更新前", cls: "hollow" }, { name: "口径 A", cls: "s1" }, { name: "口径 B", cls: "s2" }],
+    rows: pur.map(function (r) { return { label: r[0], link: [r[3], r[5]], pts: [{ s: 0, v: r[1], sig: r[2] }, { s: 2, v: r[5], sig: r[6] }, { s: 1, v: r[3], sig: r[4] }],
+      vals: "更新前 " + sval(r[1]) + (r[2] ? "*" : "") + " · A " + sval(r[3]) + (r[4] ? "*" : "") + " · B " + sval(r[5]) + (r[6] ? "*" : "") }; }) });
+})();
+</script>
+</body>
+</html>
