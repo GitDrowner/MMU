@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MLLMU 遗忘审计汇总</title>
-<meta name="description" content="LLaVA-1.5-7B 多模态遗忘三轮实验的阶段汇总：重学对照、推理路径审计、utility 约束下的恢复。">
+<meta name="description" content="LLaVA-1.5-7B 多模态遗忘四轮实验的阶段汇总：重学对照、推理路径审计、utility 约束下的恢复、IDK 拒答闸门的因果审计。">
 <meta name="color-scheme" content="light dark">
 <style>
 html { -webkit-text-size-adjust: 100%; }
@@ -49,7 +49,7 @@ section { display: flex; flex-direction: column; gap: 1.1rem; min-width: 0; }
 .note { color: var(--muted); font-size: 0.86rem; line-height: 1.6; }
 
 header.top { display: flex; flex-direction: column; gap: 1rem; }
-.rail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); margin-top: 0.6rem; }
+.rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); margin-top: 0.6rem; }
 .stop { padding: 0.9rem 1rem 0.2rem 0; display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; border-right: 1px solid var(--rule); padding-left: 1rem; }
 .stop:first-child { padding-left: 0; } .stop:last-child { border-right: 0; }
 .stop .n { font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); letter-spacing: 0.06em; }
@@ -58,6 +58,7 @@ header.top { display: flex; flex-direction: column; gap: 1rem; }
 .pill { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; font-weight: 500; padding: 0.12rem 0.55rem; border-radius: 999px; width: fit-content; line-height: 1.5; }
 .pill::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: currentColor; }
 .pill.done { background: var(--good-soft); color: var(--good); } .pill.run { background: var(--warn-soft); color: var(--warn); } .pill.wait { background: var(--rule2); color: var(--muted); }
+@media (min-width: 721px) and (max-width: 1000px) { .rail { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stop:nth-child(2n) { border-right: 0; } .stop:nth-child(2n+1) { padding-left: 0; } .stop:nth-child(n+3) { border-top: 1px solid var(--rule); } }
 @media (max-width: 720px) { .rail { grid-template-columns: 1fr; } .stop { border-right: 0; border-bottom: 1px solid var(--rule); padding: 0.8rem 0; } .stop:last-child { border-bottom: 0; } }
 
 .key { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); max-width: 52rem; }
@@ -142,20 +143,25 @@ details > :not(summary) { margin-bottom: 0.9rem; }
 .box .eyebrow { color: var(--warm); }
 .trow .vals { min-width: 0; }
 @media (min-width: 641px) { #c4 .trow { grid-template-columns: 7.6rem minmax(0, 1fr) minmax(0, 17.5rem); } #c4 .vals { white-space: normal; } #c0 .trow, #c2a .trow, #c2b .trow { grid-template-columns: 7.6rem minmax(0, 1fr) 11.5rem; }
-  #c5 .trow, #c6 .trow { grid-template-columns: 7.6rem minmax(0, 1fr) minmax(0, 18rem); } #c5 .vals, #c6 .vals { white-space: normal; } }
+  #c5 .trow, #c6 .trow { grid-template-columns: 7.6rem minmax(0, 1fr) minmax(0, 18rem); } #c5 .vals, #c6 .vals { white-space: normal; }
+  #c7 .trow { grid-template-columns: 7.6rem minmax(0, 1fr) minmax(0, 19.5rem); } #c7 .vals { white-space: normal; }
+  #c8a .trow, #c8b .trow { grid-template-columns: 11rem minmax(0, 1fr) 12rem; } #c8a .vals, #c8b .vals { white-space: normal; } }
+.panel .grp { font-size: 0.84rem; font-weight: 600; color: var(--ink2); margin-top: 0.4rem; }
+table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-width: 12rem; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <header class="top">
-  <p class="eyebrow">阶段汇总 · 截至 2026-11-19 · 三轮均已完成，第三轮已按主口径重分析</p>
+  <p class="eyebrow">阶段汇总 · 截至 2026-11-20 · 四轮均已完成</p>
   <h1>多模态遗忘评测：做了什么，现在知道什么</h1>
-  <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物），一个数据划分、一个随机种子。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。</p>
+  <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物），一个数据划分、一个随机种子。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。第四轮只分析 IDK，在 hidden state 上检查它的“遗忘”是不是只是一层拒答。</p>
   <div class="rail">
     <div class="stop"><span class="n">第一轮</span><span class="t">四组重学对照</span><span class="pill done">已完成</span><span class="d">用无关数据微调，恢复得和用真实标签差不多。但这种微调代价很大。</span></div>
     <div class="stop"><span class="n">第二轮</span><span class="t">推理路径审计</span><span class="pill done">已完成</span><span class="d">让模型先写推理不会多暴露知识。换一种问法会。</span></div>
     <div class="stop"><span class="n">第三轮</span><span class="t">utility 约束下的恢复</span><span class="pill done">已完成</span><span class="d">按主口径（同一个更新对遗忘模型、Full、Oracle 都不超预算），只剩 IDK 的拒答闸门坍塌和 NPO 的更新后残留。GA-Diff ep2 和 KL-Min 的恢复只在只看自身 utility 时成立。</span></div>
+    <div class="stop"><span class="n">第四轮</span><span class="t">IDK 拒答闸门的因果审计</span><span class="pill done">已完成</span><span class="d">知识在 hidden state 里基本完好，更新没有让它增加。拒答可以被因果地开关，但它在第 1 层就被触发、由很多层写入，不是一个后层闸门。</span></div>
   </div>
 </header>
 
@@ -183,15 +189,24 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <li><span>9</span><span><b>GA-Diff ep2 和 KL-Min 的恢复只在"只看被攻击模型自己的 utility"时成立。</b>按这个补充口径，两者在 2 个点预算内就高出同更新的 Oracle +0.19* 和 +0.20*，由更新带来的部分也在 Holm 校正后显著。但那些更新让 Full 和 Oracle 的 retain 掉 10 到 26 个点；它们自己几乎不掉，是因为起点本来就低。<span class="tag mid">补充口径，也是事先登记的盲测分析</span></span></li>
     <li><span>10</span><span><b>不存在对所有方法都有效的"通用良性更新"。</b>对五个方法都可行的更新基本是空操作；去掉 GA-Diff ep10 后，最好的通用更新能让三个方法同时显著，但它让 Full 和 Oracle 掉 10 到 11 个点。<span class="tag mid">第三轮</span></span></li>
   </ul>
+  <h3 class="tier">第四轮：IDK 的 hidden state 和因果干预（只分析了 IDK，按事先规则判为 B：部分支持）</h3>
+  <ul class="key">
+    <li><span>11</span><span><b>IDK 在拒答之前就已经算出了答案，而且这部分知识和正确身份绑定。</b>逐层读出正确答案比最强干扰项高多少，IDK 从第 17 层左右开始与 Oracle 分开，和 Full 分开的位置相同。中间层带（第 12–21 层）高出 Oracle +0.055*，15 人中 13 人为正；后层带（第 22–32 层）+0.55*，15 人全部为正。同一道题换成另一个人的图像，中间层带的优势几乎全部消失。<span class="tag ok">第四轮，层带检验是验证性的</span></span></li>
+    <li><span>12</span><span><b>无关更新没有让这些读数上升。</b>更新前后，前、中、后三个层带的变化是 +0.001、+0.009、−0.020，十选一准确率变化 −0.006 [−0.049, +0.034]。更新后能答对，是因为闸门打开、原有的知识被放了出来。只能说没有观察到重新学习，区间允许最多约 +0.03 的提升。<span class="tag mid">后层带的下降超出事先定的 ±0.018，K2 不通过</span></span></li>
+    <li><span>13</span><span><b>拒答与知识可以分开，并且能被因果地开关。</b>在第 30 层减去一个拒答方向，IDK 更新前的拒答率从 1.00 降到 0.65；在第 32 层把它加到更新后的模型上，拒答率从 0.13 升到 0.55。把更新后模型的 residual 换进更新前的模型，闸门打开，知识读数没有显著变化；反方向能把它关上。随机方向几乎没有作用；Oracle 在同样的 steering 和 patching 下既不拒答，也没有多答对。<span class="tag ok">第四轮</span></span></li>
+    <li><span>14</span><span><b>但它不是一个“后层闸门”。</b>把更新前模型第 1–4 层的状态放回更新后的模型，就足以让它重新拒答。反过来，要把更新后的状态一直换到第 13 层，拒答才降一半，换到第 24 层才降到 0.30。只把 Oracle 第 1 层的 residual 换进 IDK，拒答就从 1.00 降到 0.01。后层方向只能部分地调节拒答：这样打开后答对的比例和同一干预下的 Oracle 一样（0.15），而更新放出来的是真知识（0.60）。<span class="tag mid">K5 因此不通过</span></span></li>
+    <li><span>15</span><span><b>触发信号可能在 IDK 自己的图像 token 里。</b>第 1 层只把 Oracle 的图像 token 换进来，拒答就降到 0.01；只换文本位置没有作用。到第 16、24 层，拒答已经写进文本位置。无关更新改的主要是文本一侧。<span class="tag mid">探索性，看到逐层曲线后才追加</span></span></li>
+  </ul>
   <h3 class="tier">对论文的含义（我的建议，待你确认）</h3>
   <ul class="col">
     <li><b>以 Oracle 为锚的评测是方法上的核心：</b>同一读法、同一更新也施加在 Oracle 上，才能把残留知识和读法或更新本身的效应分开。</li>
     <li><b>utility 约束要对三个模型同时成立，而且要先过 release gate。</b>只看被攻击模型自己的 utility，会把对健康模型有破坏性的更新当成良性更新；在 release 时就已受损的模型，它的"恢复"要单独标注。</li>
-    <li><b>拒答式遗忘（IDK）只改了输出行为：</b>知识完整保留，闸门在一个对三个模型都很小的良性更新下就会打开。适合作为反例报告。</li>
+    <li><b>拒答式遗忘（IDK）只在完好的知识上加了一层拒答：</b>知识在 hidden state 里基本完整，闸门在一个对三个模型都很小的良性更新下就会打开。第四轮表明这个闸门在最早几层就被触发、由很多层写入，论文里应写成 early-triggered, distributed refusal gate，不要写成后层闸门。适合作为反例报告。</li>
+    <li><b>hidden-state 证据以因果干预为准：</b>余弦、CKA 这类原始距离分不开知识和其他训练差异；能区分“知识还在”的，是与身份绑定的中层读数，以及“换入 Oracle 的状态后还能不能答对”。Counterfactual Trajectory Matching 如果要做，建议只做一个窄版本，见“等待决定的事”。</li>
     <li><b>UID 的定义需要再考虑。</b>现在的 UID 只比 PUR 少一个与更新无关的常数，按 UID 选和按 PUR 选必然是同一个检查点。要让两者能选出不同的检查点，需要一个随更新变化的基线。</li>
     <li><b>写成论文主结论之前，至少要在另一个数据划分和第二个 Oracle 种子上复现。</b>目前的证据只来自一个模型、一个划分、一个随机种子。</li>
   </ul>
-  <p class="note">文中 * 表示 95% 置信区间不含 0。区间来自按人物聚类的 bootstrap（10,000 次重采样），模型之间的差是配对差。第三轮写"Holm 校正后"的地方，是对 5 个方法 × 3 个预算共 15 个比较做的校正。第三轮的最终测试只有 15 个人物。</p>
+  <p class="note">文中 * 表示 95% 置信区间不含 0。区间来自按人物聚类的 bootstrap（10,000 次重采样），模型之间的差是配对差。第三轮写"Holm 校正后"的地方，是对 5 个方法 × 3 个预算共 15 个比较做的校正。第三轮的最终测试只有 15 个人物，第四轮沿用这 15 个人物，Holm 校正在每一族检验内部做。</p>
 </section>
 
 <section>
@@ -239,7 +254,7 @@ details > :not(summary) { margin-bottom: 0.9rem; }
 </section>
 
 <section>
-  <h2>三轮实验</h2>
+  <h2>四轮实验</h2>
   <div class="rounds">
 
     <div class="round">
@@ -480,6 +495,106 @@ details > :not(summary) { margin-bottom: 0.9rem; }
       </div>
     </div>
 
+    <div class="round">
+      <div class="n">04</div>
+      <div class="body">
+        <div class="hd"><h3>IDK 拒答闸门的因果审计</h3><span class="pill done">已完成 · 11 月 19 日</span></div>
+        <p class="col">第三轮里，一次很小的无关更新就让 IDK 从全部拒答变成答对 0.61。这一轮在 hidden state 上检查三件事：IDK 的“遗忘”是不是只在知识上加了一个拒答闸门；更新是重新学到了知识，还是只打开了闸门；如果是闸门，它在哪几层。</p>
+        <p class="col">没有任何训练。只用 Full、Oracle、IDK 三个模型和第三轮保存的同一个无关更新（lr 1e-4，5 步），在第三轮的 15 个测试人物（138 题）上做逐层读出、steering 和 activation patching。方向、层和强度只在 5 个验证人物上选，测试人物只对冻结的配置算一次。判定规则在汇总结果之前写定。</p>
+        <div class="box">
+          <p class="eyebrow">按事先规则判为 B：部分支持</p>
+          <p>六条判据里 K2 和 K5 没有通过。K2 要求更新前后每个层带的知识读数变化都不超过 ±0.018，后层带是 −0.020，超出 0.002，而且是下降；同一更新让 Full 的后层带降了 0.050。K5 要求闸门的开关集中在不超过 6 层的范围内，实际打开它的过渡跨了 18 层。规则写于看到结果之前，没有修改。</p>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v">+0.055*</div><div class="k">中间层带 IDK 减 Oracle 的知识读数，15 人中 13 人为正</div></div>
+          <div class="stat"><div class="v">−0.006</div><div class="k">更新前后十选一准确率的变化，区间 [−0.049, +0.034]</div></div>
+          <div class="stat"><div class="v">0.01</div><div class="k">只把 Oracle 第 1 层的 residual 换进 IDK 后的拒答率，原来 1.00</div></div>
+          <div class="stat"><div class="v">18 层</div><div class="k">打开闸门的过渡宽度（第 6 到第 24 层），规则上限 6 层</div></div>
+        </div>
+        <div class="panel">
+          <h3>同一个更新对知识读数的影响</h3>
+          <div class="legend"><span><i class="mk s1"></i>IDK</span><span><i class="mk s2"></i>Oracle</span><span><i class="mk s3"></i>Full</span><span><i class="mk band"></i>K2 允许的范围 ±0.018</span><span><i class="mk refl"></i>没有变化</span></div>
+          <div class="tracks" id="c7"></div>
+          <p class="cap">更新后减更新前的知识读数，在事先固定的三个层带内平均。知识读数是用 logit lens 解码每一层的 residual 后，正确答案句的平均 token 对数似然比最强干扰句高多少。没有一个模型在任何层带显著上升。IDK 中间层带的 +0.009 区间不含 0，但 Holm 校正后不显著（*†）；后层带的下降在 Full 上更大，是这次更新对后层读数的普遍作用。</p>
+        </div>
+        <div class="panel">
+          <h3>拒答可以双向开关，但只有特定的干预才行</h3>
+          <div class="legend"><span><i class="mk hollow"></i>拒答率</span><span><i class="mk s1"></i>生成答对率</span><span><i class="mk refl"></i>Oracle 不加干预时的生成答对率</span></div>
+          <p class="grp">从 IDK 更新前出发（拒答 1.00）</p>
+          <div class="tracks" id="c8a"></div>
+          <p class="grp">从 IDK 更新后出发（拒答 0.13）</p>
+          <div class="tracks" id="c8b"></div>
+          <p class="cap">15 个测试人物上的拒答率和生成答对率。steering 的层和强度在验证人物上选定：更新前在第 30 层减 1.0 倍方向，更新后在第 32 层加 0.5 倍方向；随机方向和 retain 人物方向与它同范数。“换入第 l 层”指把供体模型第 l 层之后的 residual 在所有提示位置上替换进来，之后的层由受体自己计算；换回更新前第 2 层的 residual 时拒答已回到 0.73。steering 打开闸门后答对的比例和同一干预下的 Oracle 一样；更新后的状态和 Full 的状态放出来的才是真知识。</p>
+        </div>
+        <ul class="col">
+          <li><b>H1 成立（验证性）：IDK 更新前就有与身份绑定的人物知识。</b>中间层带 +0.055* [+0.036, +0.074]，Holm 校正后显著；前层带 −0.009，不显著。不给图像时中间层带只剩 +0.010，只给姓名 +0.001；在三个模型都学过的 retain 人物上，IDK 与 Oracle 没有差异。IDK 保留了 Full 相对 Oracle 优势的 85%（NR 0.853）。</li>
+          <li><b>H2 只成立一半。</b>“没有重新学习”有支持，“更新删掉了一个后层拒答方向”不被支持：同一更新让三个模型在这个方向上的投影都下降，Full 和 Oracle 降得比 IDK 还多；而把更新前第 1–4 层的状态放回去就能重新关上闸门，说明更新改变的是早期处理。</li>
+          <li><b>H3 按规则判为成立，但“集中在少数后层”这一半不成立。</b>steering 选中的层都在后层，所以规则判为成立；patching 显示打开闸门的过渡宽 18 层，50% 点在第 13 层 [12, 16]，关上它只要第 1–4 层。两种证据有冲突，都要报告。</li>
+          <li><b>H4 成立：Oracle 在同样的分析和干预下都没有目标知识。</b>同一更新后 Oracle 没有层带显著上升；同一 steering 向量下 Oracle 不拒答，也没有多答对；Oracle、Full 各自做同样的更新后→更新前 patching，任何层都不产生拒答，答对率不变。</li>
+          <li><b>NR 和 ΔNR：</b>IDK 更新前 0.853，更新后 0.901，ΔNR +0.048 [−0.019, +0.122]；UID +0.007 [−0.044, +0.055]。NR 与第三轮重分析里的 RF 是同一个量。</li>
+        </ul>
+        <div class="box">
+          <p class="eyebrow">探索性：按位置的 patching（看到逐层曲线后才追加，没有事先规则）</p>
+          <ul>
+            <li><b>触发在 IDK 自己的图像 token 里。</b>第 1 层只把 Oracle 的图像 token 换进 IDK 更新前的模型，拒答 1.00 → 0.01，和整层替换一样，答对率 0.23，是 Oracle 的水平；只换文本位置完全不起作用。换入 Full 的图像 token，拒答降到 0.43，答对 0.50。</li>
+            <li><b>拒答决定随后被写进文本位置。</b>在第 16、24 层只换入 Oracle 或 Full 的文本位置，拒答降到 0.00–0.03；图像 token 仍是 IDK 自己的，所以答对率达到 0.61–0.70。只换图像 token，到第 24 层已经没有作用。</li>
+            <li><b>更新改的主要是文本一侧。</b>把更新后的图像 token 换进更新前的模型，第 1、6、16、24 层都不改变拒答；只换文本位置，拒答随层数降到 0.92、0.70、0.47。</li>
+          </ul>
+          <p>在另一个划分上重复之前，这一部分只作为线索。</p>
+        </div>
+        <details>
+          <summary>怎么做的</summary>
+          <ul class="col">
+            <li><b>模型和检查点：</b>Full、Oracle、IDK 的合并模型，加上第三轮保存的 LoRA 更新。主检查点是 lr 1e-4 第 5 步，另查了 lr 1e-4 第 2、10 步和 lr 5e-5 第 5、10 步。三个模型用的是同一个更新：同样的数据、batch 顺序和优化配置。</li>
+            <li><b>人物划分：</b>沿用第三轮。5 个验证人物用来选方向、层、强度和 patching 配置，15 个测试人物只对冻结的配置算一次；另用 25 个 retain 人物作对照。</li>
+            <li><b>逐层知识读数（实验一）：</b>用 logit lens（最终 RMSNorm 加 lm_head）解码每层之后的 residual，算正确答案句的平均 token 对数似然减去最强干扰句的值。层带事先固定为第 1–11、12–21、22–32 层。</li>
+            <li><b>轨迹相似性（实验二，只作描述）：</b>按层、按位置（图像 token 的均值、问题末 token、第一个答案 token）算余弦距离、CKA、Procrustes 距离和主角度。</li>
+            <li><b>拒答方向和 steering（实验三）：</b>在验证人物上，用训练问法和“直接回答”提示下 residual 的均值差作为每层的拒答方向。steering 在所有位置加减这个方向，包括生成的 token。对照是 3 个同范数随机方向、用 retain 人物算出的方向，以及把同一个向量施加在 Oracle 和 Full 上。</li>
+            <li><b>activation patching（实验四）：</b>把供体模型第 l 层之后的 residual 在所有提示位置替换进受体，之后的层由受体计算；生成的 token 在第 l 层及以下读的是受体自己的 KV。方向包括更新后→更新前、更新前→更新后、Full→IDK 更新前、Oracle→IDK 更新前，以及 Oracle、Full 各自的更新后→更新前作对照。attention 和 MLP 组件级的 patching 只在验证集上的过渡足够窄时才做，这次没有触发。</li>
+            <li><b>统计：</b>按人物聚类的配对 bootstrap（10,000 次），95% 区间，Holm 校正，并报告 15 人中效应为正的人数。层带检验和冻结配置的测试结果是验证性的；逐层曲线、按位置分析、轨迹和投影是探索性或描述性的。</li>
+          </ul>
+        </details>
+        <details>
+          <summary>事先写定的判据和结果（规则写于 2026-11-19 08:14 UTC）</summary>
+          <div class="tablewrap"><table class="k4">
+            <thead><tr><th>判据</th><th>规则</th><th>结果</th><th>结论</th></tr></thead>
+            <tbody>
+              <tr><td class="name">K1</td><td>中间层带 IDK 更新前减 Oracle 更新前：区间下界大于 0，Holm p &lt; 0.05</td><td class="mono">+0.055 [+0.036, +0.074]</td><td>通过</td></tr>
+              <tr><td class="name">K2</td><td>IDK 更新前后每个层带的变化不超过 K1 估计的 1/3（±0.018），十选一变化不超过 0.05</td><td class="mono">+0.001 / +0.009 / −0.020；十选一 −0.006</td><td>未通过</td></tr>
+              <tr><td class="name">K3</td><td>问题末 token 上，IDK 由更新引起的变化超出 Full、Oracle 的部分在后层带最大，区间下界大于 0</td><td class="mono">−0.002 / +0.015 / +0.057</td><td>通过</td></tr>
+              <tr><td class="name">K4</td><td>steering：更新前减方向拒答下降，更新后加方向拒答上升，区间都不含 0</td><td class="mono">−0.355 [−0.452, −0.255]；+0.420 [+0.318, +0.526]</td><td>通过</td></tr>
+              <tr><td class="name">K5</td><td>patching：两个方向都显著，且过渡宽度不超过 6 层</td><td>两个方向都显著；过渡宽 18 层和 3 层</td><td>未通过</td></tr>
+              <tr><td class="name">K6</td><td>随机方向的效应不到拒答方向的一半；Oracle 答对率不升；Oracle 更新前后的读数不显著上升</td><td>全部满足</td><td>通过</td></tr>
+            </tbody>
+          </table></div>
+          <p class="note col">K1–K6 全部通过判为 A。IDK 更新前后的读数在至少两个层带显著上升、或 K1 不成立、或 steering 和 patching 两个方向都没有效应，判为 C。其余判为 B。任务书里的 A/B/C 是定性描述，具体阈值是执行时定的，看到结果后没有修改。</p>
+        </details>
+        <details>
+          <summary>披露、偏离和一致性检查</summary>
+          <ul class="col">
+            <li>15 个测试人物的行为结果（拒答率、生成答对率、十选一）在第三轮已经解封；逐层读数、轨迹、steering 和 patching 的结果此前未知。判定规则写定时只看过 1 个验证人物、2 道题的冒烟测试。</li>
+            <li>任务书指定的 “Answer the question directly.” 在验证人物上没有让 IDK 开口（拒答 0.79，事先规则的上限是 0.5），所以按事先规则改用第二轮验证过的措辞。</li>
+            <li>生成用贪心解码、batch size 1，所有基线在本轮重算。第三轮是批量生成，个别回答不同。</li>
+            <li>组件级 patching 没有运行：验证集上更新后→更新前的过渡宽 12 层，规则上限是 10 层。</li>
+            <li>本轮重算的 186 题十选一准确率与第三轮的 18 个检查点逐一相同，只有一个差 0.001，在容差内。不同任务之间不加干预的重复运行，贪心回答完全相同。</li>
+            <li>只有一个划分、一个种子、一个 Oracle；“更新后”只指一种 5 步的无关更新；早层的 logit-lens 读数接近噪声。</li>
+          </ul>
+        </details>
+        <details>
+          <summary>任务书要求回答的七个问题</summary>
+          <ol class="col">
+            <li><b>哪些假设成立：</b>H1 和 H4；H3 按规则判为成立，但只由 steering 满足。</li>
+            <li><b>哪些不成立或只部分成立：</b>H2 只成立一半；H3 里“集中在少数后层”被 patching 否定。</li>
+            <li><b>能否用 “refusal gate”：</b>可以，但只作功能性描述，即与知识分离、可以因果开关的拒答机制。建议写成 an early-triggered, distributed refusal gate on top of intact identity knowledge，不要写成 late-layer gate。</li>
+            <li><b>能否说更新没有重新学习知识：</b>可以说“没有观察到”，不能说“证明了没有”。十选一变化的区间上界是 +0.034。</li>
+            <li><b>主文图：</b>下面“第四轮的五张图”里的第一张（逐层知识读数）和第二张（双向 patching，配第三张热力图里 Full→IDK、Oracle→IDK 两行），以及第四张的 c 面板（steering）。</li>
+            <li><b>只放附录：</b>轨迹距离、拒答方向上的投影、单位置读出、验证集网格、各项控制表、NR 表、Oracle 和 Full 内部的 patching、按位置的 patching。按位置的 patching 在另一个划分上重复成立后，可以替换 steering 作为主文第三张图。</li>
+            <li><b>是否值得实现 Counterfactual Trajectory Matching：</b>不值得做成通用的轨迹距离指标。原始距离分不开知识和其他训练差异：早层图像 token 上，Full 与 Oracle 本身就有约 0.04 的余弦距离。值得做一个窄版本：只在因果定位到的层和位置上比较，用知识读出和 Oracle→模型 patching 的结果代替原始距离，用第二个 Oracle 种子估计噪声底线，先在 5 个方法上看它是否和 PUR、UID 一致。这需要训练第二个 Oracle 种子，还在等你决定。</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -490,7 +605,7 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <tbody>
       <tr><td class="name">Oracle</td><td>没有目标知识的下限</td><td>所有问法、所有更新下 0.21–0.28</td></tr>
       <tr><td class="name">Full</td><td>上限，未遗忘</td><td>0.98；写完 rationale 后降到 0.55</td></tr>
-      <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，知识基本完整；唯一通过 release gate 的遗忘模型</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次让三个模型 retain 各降 3 到 4 个点的无关更新后，拒答 13%、生成答对 0.61</td></tr>
+      <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，压在基本完好的知识上；闸门在第 1 层就被触发、由很多层写入；唯一通过 release gate 的遗忘模型</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次让三个模型 retain 各降 3 到 4 个点的无关更新后，拒答 13%、生成答对 0.61；hidden state 中间层带高出 Oracle +0.055*，更新前后不变</td></tr>
       <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人；更新前 retain 已比 Full 低 13 个点</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；主口径 10 个点预算下 +0.15*（Holm 校正后显著），但由更新带来的部分校正后不显著</td></tr>
       <tr><td class="name">GA-Diff ep2</td><td>认得出人，属性接近 Oracle，个别属性低于 Oracle；更新前 retain 已比 Full 低 29 个点</td><td>姓名题 +0.37*；生日 −0.24*；只看自身 utility 时无关更新后 +0.19*，但那次更新让 Full 和 Oracle 掉 10 和 14 个点；主口径下只剩未校正的 +0.11*</td></tr>
       <tr><td class="name">KL-Min</td><td>更新前最接近 Oracle；更新前 retain 已比 Full 低 26 个点</td><td>更新前 −0.04（不显著）；只看自身 utility 时 lr 1e-4 × 20 步后 +0.20*，但同一更新让 Full 和 Oracle 降 22 和 26 个点；主口径下 −0.02</td></tr>
@@ -515,13 +630,20 @@ details > :not(summary) { margin-bottom: 0.9rem; }
         <li>只看被攻击模型自己的 utility 时，KL-Min 和 GA-Diff ep2 在一次几乎不损失自身 retain 的无关更新后显著高于同更新的 Oracle（+0.20*、+0.19*）。但这次更新让健康模型的 retain 掉 10 到 26 个点，按主口径不算良性更新。</li>
         <li>在任何更新之前，只有 IDK 的 retain 与 Full 相差不到 5 个点；NPO、GA-Diff ep2、KL-Min 已低 13 到 29 个点。</li>
         <li>第一轮里，无关数据上的微调和真实标签上的微调恢复得差不多，Oracle 在任何一组都不恢复。</li>
+        <li>IDK 在拒答之前就已经在 hidden state 里算出了与正确身份绑定的答案，从第 17 层左右开始与 Oracle 分开，和 Full 的位置相同；无关更新没有让这些读数上升。</li>
+        <li>IDK 的拒答与知识可以分开、被因果地开关：后层 steering 和层间 residual 替换都能双向改变拒答，打开闸门时知识读数不变；Oracle 在同样的干预下没有目标知识。</li>
+        <li>只把 Oracle 第 1 层的 residual 换进 IDK，拒答就几乎消失；IDK 的拒答在最早几层就被触发。</li>
       </ul>
     </div>
     <div>
       <h3 class="no">不能说</h3>
       <ul>
         <li>生成的 rationale 等同于模型真实的内部推理。</li>
-        <li>rationale 泄漏或不泄漏，证明了某个具体电路或层存储或删除了知识。项目里没有做任何内部表征分析。</li>
+        <li>rationale 泄漏或不泄漏，证明了某个具体电路或层存储或删除了知识。第四轮的内部分析只针对 IDK，只定位到层带和位置，没有定位到具体组件。</li>
+        <li>IDK 的拒答由一个后层方向或少数后层介导。拒答在第 1 层就被触发，打开闸门要替换到第 13–24 层，后层方向只能部分地调节它。</li>
+        <li>证明了无关更新没有让 IDK 重新学到知识。只能说没有观察到，十选一变化的区间允许最多 +0.034 的提升。</li>
+        <li>表示距离（余弦、CKA 等）的大小说明了知识是否被删除。第四轮的距离只作描述。</li>
+        <li>拒答的触发信号在图像 token 里已经被确认。这是事后追加的探索性分析，需要在另一个划分上重复。</li>
         <li>"CoT 审计能发现强制选择发现不了的残留知识"。这里是反过来的，似然强制选择更灵敏。</li>
         <li>"良性更新普遍会恢复被遗忘的知识"。不存在对所有方法都有效的通用更新；KL-Min 和 GA-Diff ep2 的恢复依赖一个对健康模型有破坏性的更新。</li>
         <li>GA-Diff ep10 在更新后恢复了目标知识。它恢复的是生成能力，准确率只回到 Oracle 的水平。</li>
@@ -549,21 +671,50 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <li><b>NPO、GA-Diff ep2、KL-Min 在 release 时已经受损</b>，它们的"恢复"是在本来就失去大量 retain 能力的模型上测得的。</li>
     <li><b>第三轮只有 5 个验证人物</b>，用它们选配置有噪声：NPO 的 PUR 从验证人物到最终测试人物缩小了一半以上。</li>
     <li><b>第三轮只用了一种更新数据</b>：77 个问答，100 步相当于过了 5 遍多。强学习率对健康模型的损伤可能部分来自对这一小撮数据的过拟合，换成更大更杂的无关数据，口径 B 下的结论可能不同。</li>
+    <li><b>第四轮只分析了 IDK</b>，同样只有一个划分、一个种子、一个 Oracle，测试集 15 人、138 题，这些人物的行为结果在第三轮已经解封。“更新后”只指一种 5 步的无关更新。</li>
+    <li><b>第四轮的逐层读数用的是 logit lens</b>，早层的读数接近噪声，没有用 tuned lens。patching 只替换提示部分；按位置的 patching 是事后追加的，没有事先规则。</li>
   </ul>
 </section>
 
 <section>
   <h2>等待决定的事</h2>
-  <p class="col">三轮都已完成，现在停下等指令，没有自动扩展到其他划分或其他模型。</p>
+  <p class="col">四轮都已完成，现在停下等指令，没有自动扩展到其他划分或其他模型。</p>
   <ol class="col">
     <li><b>UID 是否换一个随更新变化的基线。</b>现在的 UID 只比 PUR 少一个与更新无关的常数，按 UID 选和按 PUR 选必然是同一个检查点。一个可选的基线是同一更新下 Full 与 Oracle 的差距。</li>
-    <li><b>是否先复现，再做 hidden-state 分析。</b>最适合做内部表征分析的是 IDK 的闸门坍塌：效应大，两种口径都成立，转变发生在很窄的步数区间。其次是 NPO。写成论文主结论之前，至少需要另一个划分和第二个 Oracle 种子。</li>
+    <li><b>是否在另一个划分上重复第四轮。</b>IDK 的 hidden-state 分析已在这个划分上完成。最需要重复的是按位置的 patching（目前是探索性的），重复成立后它可以进主文。写成论文主结论之前，至少需要另一个划分和第二个 Oracle 种子。</li>
+    <li><b>是否实现窄版的 Counterfactual Trajectory Matching。</b>只在因果定位到的层和位置上比较遗忘模型和 Oracle，用知识读出和 Oracle→模型 patching 的结果而不是原始距离，先在 5 个方法上看它是否和 PUR、UID 一致。前提是第二个 Oracle 种子，用来估计“对齐”的噪声底线。</li>
+    <li><b>是否对 NPO 做类似的 hidden-state 分析。</b>它是主口径下唯一有更新后残留的方法，但效应比 IDK 小得多。</li>
     <li><b>是否测更温和的更新</b>：更大的无关数据、更多步、更小的学习率，看 KL-Min 和 GA-Diff ep2 在口径 B 下是否仍然不恢复。</li>
     <li><b>是否把前两轮有区分度的部分扩展到其余四个划分。</b>建议做精简版：三种问法下的似然十选一（姓名题与属性题分开）、带 Oracle 同配置对照的学习率扫描、干预里的身份替换和 rationale 互换。去掉候选枚举、字母选择、采样和自由生成 JSON。</li>
-    <li><b>是否训练更多 Oracle 种子，以及是否做各模型的种子重训。</b>之前决定先不做。现在所有结论都只有一个种子支撑。</li>
+    <li><b>是否训练更多 Oracle 种子，以及是否做各模型的种子重训。</b>之前决定先不做。现在所有结论都只有一个种子支撑；第二个 Oracle 种子也是上面窄版 Counterfactual Trajectory Matching 的前提。</li>
     <li><b>是否安排人工复核</b>第二轮的 162 条抽样。</li>
     <li><b>Qwen 系列</b>建议放在四个划分之后。</li>
   </ol>
+</section>
+
+<section>
+  <h2>第四轮的五张图</h2>
+  <p class="note">图内文字是英文。原图在 <code>~/MMU/runs/idk_gate_audit_s0/figures/</code>，另有 PDF。第一、二张和第四张的 c 面板是建议放主文的图，第三张是第二张的完整版，第五张是探索性分析。除特别说明外都来自 15 个测试人物，阴影和竖线是按人物聚类的 95% 区间。</p>
+  <figure>
+    <div class="frame"><img src="assets/gate_layer_margin.png" alt="三个面板：更新前和同一更新后 Full、Oracle、IDK 的逐层知识读数，以及同一批题上的配对差" loading="lazy"></div>
+    <figcaption><b>IDK 在拒答之前就算出了答案。</b>纵轴是逐层知识读数：logit lens 下正确答案句的平均 token 对数似然减去最强干扰句。a 是更新前，b 是同一更新之后（lr 1e-4 第 5 步），c 是同一批题上的配对差。IDK（蓝）从第 17 层左右与 Oracle（橙）分开，和 Full（绿）分开的位置相同。c 中 IDK 更新后减更新前（深灰）一直接近 0，只在最后两层下降。竖虚线是事先固定的三个层带。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/gate_patching_curves.png" alt="两个面板：按替换到的层画拒答率和生成答对率，六组供体到受体" loading="lazy"></div>
+    <figcaption><b>打开和关上闸门不对称。</b>横轴是替换哪一层之后的 residual（0 表示不替换），a 是拒答率，b 是生成答对率。蓝线把更新后的状态换进更新前的模型：拒答随层数缓慢下降，第 13 层降一半，第 24 层降到 0.30。深灰线把更新前的状态换回更新后的模型：第 1–4 层就重新关上。橙线换入 Oracle 的状态，第 1 层就让拒答降到 0.01，但答对率停在 Oracle 的水平；绿线换入 Full 的状态，放出来的是真知识。点线是 Oracle、Full 各自内部的同样操作，不产生拒答。换入 Oracle 后层的状态时答对率回升，是因为生成的 token 还能读到 IDK 自己前中层的 KV。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/gate_patching_heatmap.png" alt="三个热力图：六组 patching 在 32 层上的拒答率变化、生成答对率变化和最后一层知识读数变化" loading="lazy"></div>
+    <figcaption><b>逐层 patching 的完整结果。</b>六组供体→受体，a 是拒答率的变化，b 是生成答对率的变化，c 是最后一层知识读数的变化；黑点表示对 32 层做 Holm 校正后显著。c 中 Oracle→IDK 一行：换入 Oracle 前中层的状态，IDK 的知识读数大幅下降；换入第 22 层以后的状态则基本不变，说明知识是由 IDK 自己的前中层算出来的。最下两行是 Oracle、Full 内部的对照。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/gate_steering.png" alt="验证人物上 steering 的层和强度网格，以及冻结配置在测试人物上对拒答率、生成答对率和十选一准确率的影响" loading="lazy"></div>
+    <figcaption><b>后层方向能部分地双向调节拒答。</b>a、b 是验证人物上的层和强度网格，横轴是 retain 十选一的变化，圈出的是按 utility 规则冻结的配置（更新前第 30 层减 1.0 倍，更新后第 32 层加 0.5 倍）。c 是冻结配置在测试人物上的效果：灰色是拒答率，蓝色是生成答对率，橙色是十选一准确率。随机方向几乎没有作用；retain 人物方向在更新后的模型上反而略降拒答；同一向量施加在 Oracle 和 Full 上不产生拒答。加减拒答方向都不改变十选一准确率。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/gate_position_patching.png" alt="按位置的 patching：在第 1、6、16、24 层只替换图像 token 或只替换文本位置，四组供体到受体的拒答率和答对率变化" loading="lazy"></div>
+    <figcaption><b>探索性：只替换图像 token，或只替换文本位置。</b>黑色短横是整层替换，蓝色只换图像 token，橙色只换文本位置；上排是拒答率的变化，下排是生成答对率的变化。a：第 1 层只换入 Oracle 的图像 token 就能打开闸门，到第 16、24 层起作用的是文本位置。c：把更新后的图像 token 换进更新前的模型没有作用，起作用的是文本位置。这是看到逐层曲线之后才追加的分析，需要在另一个划分上重复。</figcaption>
+  </figure>
 </section>
 
 <section>
@@ -606,7 +757,7 @@ details > :not(summary) { margin-bottom: 0.9rem; }
 
 <section>
   <h2>相关论文</h2>
-  <p class="col">按与本项目的关系分 6 组，共 55 篇。每篇注明发表处，并用一句话说明它和本项目的关系；标签表示它的结论与本项目一致、相反，或方法最相关。链接指向 arXiv 摘要页，这里不转载论文全文。</p>
+  <p class="col">按与本项目的关系分 6 组，共 58 篇。每篇注明发表处，并用一句话说明它和本项目的关系；标签表示它的结论与本项目一致、相反，或方法最相关。链接指向 arXiv 摘要页，这里不转载论文全文。</p>
   <h3 class="tier">本项目使用的模型、基准和遗忘方法</h3>
   <ol class="refs">
     <li><a href="https://arxiv.org/abs/2304.08485">Visual Instruction Tuning</a><span class="meta">Haotian Liu et al. · NeurIPS 2023</span><span class="why">LLaVA：用 GPT-4 生成的图文指令数据端到端微调，是本项目所用模型的来源。</span></li>
@@ -630,7 +781,7 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <li><a href="https://arxiv.org/abs/2509.22263">Erase or Hide? Suppressing Spurious Unlearning Neurons for Robust Unlearning</a><span class="meta">Nakyeong Yang et al. · ICLR 2026</span><span class="why">常用遗忘方法只是用“虚假遗忘神经元”把知识藏起来，良性微调后知识会重现。 <span class="tag ok">与本项目一致</span></span></li>
     <li><a href="https://arxiv.org/abs/2602.03379">Rethinking Benign Relearning: Syntax as the Hidden Driver of Unlearning Failures</a><span class="meta">Sangyeon Yoon et al. · ICLR 2026</span><span class="why">良性再学习主要由句式相似驱动，而不是话题相关。本项目的无关 VQA 数据也是整句回答，可能与此有关，需要对照。 <span class="tag close">与本项目最相关</span></span></li>
     <li><a href="https://arxiv.org/abs/2506.06278">Distillation Robustifies Unlearning</a><span class="meta">Bruce W. Lee et al. · NeurIPS 2025</span><span class="why">即使输出已和从未见过遗忘数据的 oracle 一致，继续微调后仍比 oracle 恢复得快。与本项目以 Oracle 为锚的思路最接近。 <span class="tag close">与本项目最相关</span></span></li>
-    <li><a href="https://arxiv.org/abs/2505.16831">Unlearning Isn&#x27;t Deletion: Investigating Reversibility of Machine Unlearning in LLMs</a><span class="meta">Xiaoyu Xu et al. · ICML 2026</span><span class="why">少量微调就能恢复遗忘前的行为；用 PCA、CKA、Fisher 信息等表征指标说明知识被压制而非删除。是本项目下一步 hidden-state 分析最接近的已有工作。 <span class="tag close">与本项目最相关</span></span></li>
+    <li><a href="https://arxiv.org/abs/2505.16831">Unlearning Isn&#x27;t Deletion: Investigating Reversibility of Machine Unlearning in LLMs</a><span class="meta">Xiaoyu Xu et al. · ICML 2026</span><span class="why">少量微调就能恢复遗忘前的行为；用 PCA、CKA、Fisher 信息等表征指标说明知识被压制而非删除。第四轮也算了 CKA 等表征距离，但只作描述：距离本身分不开知识和其他训练差异。 <span class="tag close">与本项目最相关</span></span></li>
     <li><a href="https://arxiv.org/abs/2505.22310">From Dormant to Deleted: Tamper-Resistant Unlearning Through Weight-Space Regularization</a><span class="meta">Shoaib Ahmed Siddiqui et al. · NeurIPS 2025</span><span class="why">在视觉分类器上，只用保留集微调就能让遗忘集准确率从约 50% 回到近 100%，而重训模型仍是 50%。 <span class="tag ok">与本项目一致</span></span></li>
   </ol>
   <h3 class="tier">多模态大模型的遗忘与恢复攻击</h3>
@@ -654,22 +805,25 @@ details > :not(summary) { margin-bottom: 0.9rem; }
     <li><a href="https://arxiv.org/abs/2505.15214">R-TOFU: Unlearning in Large Reasoning Models</a><span class="meta">Sangyeon Yoon, Wonje Jeung, Albert No · EMNLP 2025</span><span class="why">面向大型推理模型的遗忘基准，同时检查最终答案和推理链。</span></li>
     <li><a href="https://arxiv.org/abs/2506.12963">Reasoning Model Unlearning: Forgetting Traces, Not Just Answers, While Preserving Reasoning Skills</a><span class="meta">Changsheng Wang et al. · EMNLP 2025</span><span class="why">推理模型的遗忘要同时清除推理痕迹，而不只是最终答案。</span></li>
   </ol>
-  <h3 class="tier">hidden state 分析：方法基础与最相关的已有工作（下一阶段）</h3>
+  <h3 class="tier">hidden state 分析：方法基础与最相关的已有工作（第四轮）</h3>
   <ol class="refs">
-    <li><a href="https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens">interpreting GPT: the logit lens</a><span class="meta">nostalgebraist · LessWrong 博客 2020</span><span class="why">用最终层的 unembedding 直接解码中间层，是逐层读出预测的最简单方法。</span></li>
+    <li><a href="https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens">interpreting GPT: the logit lens</a><span class="meta">nostalgebraist · LessWrong 博客 2020</span><span class="why">用最终层的 unembedding 直接解码中间层，是逐层读出预测的最简单方法。第四轮的逐层知识读数用的就是它。</span></li>
     <li><a href="https://arxiv.org/abs/2303.08112">Eliciting Latent Predictions from Transformers with the Tuned Lens</a><span class="meta">Nora Belrose et al. · arXiv 2023</span><span class="why">为每一层训练一个仿射映射再解码，比 logit lens 更可靠地逐层读出预测。</span></li>
-    <li><a href="https://arxiv.org/abs/2202.05262">Locating and Editing Factual Associations in GPT</a><span class="meta">Kevin Meng et al. · NeurIPS 2022</span><span class="why">用因果追踪把事实知识定位到中间层的 MLP，可用来定位残留知识所在的层。</span></li>
-    <li><a href="https://arxiv.org/abs/2406.11717">Refusal in Language Models Is Mediated by a Single Direction</a><span class="meta">Andy Arditi et al. · NeurIPS 2024</span><span class="why">拒答由残差流中的单一方向介导，去掉或加上这个方向就能开关拒答。可用来检验 IDK 的“遗忘”是否只是拒答。</span></li>
+    <li><a href="https://arxiv.org/abs/2202.05262">Locating and Editing Factual Associations in GPT</a><span class="meta">Kevin Meng et al. · NeurIPS 2022</span><span class="why">用因果追踪把事实知识定位到中间层的 MLP。第四轮的逐层 patching 沿用“替换某一层的状态、看输出怎么变”的思路，只是供体换成了另一个模型。</span></li>
+    <li><a href="https://arxiv.org/abs/2406.11717">Refusal in Language Models Is Mediated by a Single Direction</a><span class="meta">Andy Arditi et al. · NeurIPS 2024</span><span class="why">拒答由残差流中的单一方向介导，去掉或加上这个方向就能开关拒答。第四轮用同样的均值差方法找到了 IDK 的拒答方向，但它只能部分地开关拒答；patching 显示 IDK 的拒答在第 1 层就被触发，不能归结为一个后层方向。</span></li>
     <li><a href="https://arxiv.org/abs/2310.01405">Representation Engineering: A Top-Down Approach to AI Transparency</a><span class="meta">Andy Zou et al. · arXiv 2023</span><span class="why">从群体层面的表征出发监测和操控高层概念，可用来寻找并操控与遗忘相关的方向。</span></li>
     <li><a href="https://arxiv.org/abs/1909.03368">Designing and Interpreting Probes with Control Tasks</a><span class="meta">John Hewitt, Percy Liang · EMNLP-IJCNLP 2019</span><span class="why">提出控制任务和选择性指标，区分探针读到的是表征里的信息，还是探针自己学会的。</span></li>
     <li><a href="https://arxiv.org/abs/2102.12452">Probing Classifiers: Promises, Shortcomings, and Advances</a><span class="meta">Yonatan Belinkov · Computational Linguistics 2022</span><span class="why">系统评述探针方法的局限和改进，例如对照基线和因果干预。</span></li>
     <li><a href="https://arxiv.org/abs/2406.11614">Intrinsic Test of Unlearning Using Parametric Knowledge Traces</a><span class="meta">Yihuai Hong et al. · EMNLP 2025</span><span class="why">用词表投影找到参数里的概念向量：现有遗忘方法几乎不改动它们，主要是在推理时压制。 <span class="tag ok">与本项目一致</span></span></li>
     <li><a href="https://arxiv.org/abs/2410.06606">Dissecting Fine-Tuning Unlearning in Large Language Models</a><span class="meta">Yihuai Hong et al. · EMNLP 2024</span><span class="why">用激活修补和参数恢复说明，微调式遗忘改变的是知识的提取路径，而不是删除知识。 <span class="tag ok">与本项目一致</span></span></li>
-    <li><a href="https://arxiv.org/abs/2505.01456">Unlearning Sensitive Information in Multimodal LLMs: Benchmark and Attack-Defense Evaluation</a><span class="meta">Vaidehi Patil et al. · arXiv 2025</span><span class="why">同样在 LLaVA-1.5-7B 上：用 logit lens 读各层隐藏状态的白盒攻击能找回被删除的信息，但只和遗忘前的模型比，没有与从未见过这些信息的模型对照。是本项目实验 1 最接近的已有工作。 <span class="tag close">与本项目最相关</span></span></li>
+    <li><a href="https://arxiv.org/abs/2505.01456">Unlearning Sensitive Information in Multimodal LLMs: Benchmark and Attack-Defense Evaluation</a><span class="meta">Vaidehi Patil et al. · arXiv 2025</span><span class="why">同样在 LLaVA-1.5-7B 上：用 logit lens 读各层隐藏状态的白盒攻击能找回被删除的信息，但只和遗忘前的模型比，没有与从未见过这些信息的模型对照。是第四轮逐层读数最接近的已有工作；第四轮加入了从未见过这些人物的 Oracle 作对照。 <span class="tag close">与本项目最相关</span></span></li>
     <li><a href="https://arxiv.org/abs/2411.02631">Extracting Unlearned Information from LLMs with Activation Steering</a><span class="meta">Atakan Seyitoğlu et al. · NeurIPS 2024 Workshop（Safe Generative AI）</span><span class="why">用激活引导提取已遗忘的信息；对广为人知的知识有效，对非公众人物的细节较弱（本项目的虚构人物正属于后者）。</span></li>
-    <li><a href="https://arxiv.org/abs/2605.24614">Measuring the Depth of LLM Unlearning via Activation Patching</a><span class="meta">Jaeung Lee, Dohyun Kim, Jaemin Jo · EMNLP 2026</span><span class="why">以 retain 模型为基线做激活修补，提出 0 到 1 的“遗忘深度”指标，度量目标知识还有多少能被恢复。与本项目以 Oracle 为锚的思路接近。 <span class="tag close">与本项目最相关</span></span></li>
+    <li><a href="https://arxiv.org/abs/2605.24614">Measuring the Depth of LLM Unlearning via Activation Patching</a><span class="meta">Jaeung Lee, Dohyun Kim, Jaemin Jo · EMNLP 2026</span><span class="why">以 retain 模型为基线做激活修补，提出 0 到 1 的“遗忘深度”指标，度量目标知识还有多少能被恢复。与第四轮把 Oracle 的状态换进 IDK 的做法思路接近。 <span class="tag close">与本项目最相关</span></span></li>
     <li><a href="https://arxiv.org/abs/2609.36612">Do LLMs Really Forget? Hidden-State Leakage in Model Unlearning and How to Fix it</a><span class="meta">Hadi Reisizadeh et al. · arXiv 2026</span><span class="why">输出不再泄漏时，隐藏状态里仍常能读出敏感信息；只看输出会高估遗忘。 <span class="tag ok">与本项目一致</span></span></li>
-    <li><a href="https://arxiv.org/abs/2606.03291">Multilingual Unlearning in LLMs: Transfer, Dynamics, and Reversibility</a><span class="meta">Chaoyi Xiang et al. · ICML 2026</span><span class="why">遗忘主要是后几层的表层压制，一个推理时的引导方向就能恢复约 50%（Qwen）到 90%（Gemma）的遗忘知识。 <span class="tag ok">与本项目一致</span></span></li>
+    <li><a href="https://arxiv.org/abs/2606.03291">Multilingual Unlearning in LLMs: Transfer, Dynamics, and Reversibility</a><span class="meta">Chaoyi Xiang et al. · ICML 2026</span><span class="why">遗忘主要是后几层的表层压制，一个推理时的引导方向就能恢复约 50%（Qwen）到 90%（Gemma）的遗忘知识。第四轮在 IDK 上看到的不完全一样：后层方向只打开了约三分之一的拒答，拒答在第 1 层就被触发。 <span class="tag ok">与本项目一致</span></span></li>
+    <li><a href="https://arxiv.org/abs/1905.00414">Similarity of Neural Network Representations Revisited</a><span class="meta">Simon Kornblith et al. · ICML 2019</span><span class="why">提出用 CKA 比较不同网络、不同层的表征，在表征维度高于样本数时仍然可用。第四轮的轨迹相似性用了 CKA。</span></li>
+    <li><a href="https://arxiv.org/abs/2309.16042">Towards Best Practices of Activation Patching in Language Models: Metrics and Methods</a><span class="meta">Fred Zhang, Neel Nanda · ICLR 2024</span><span class="why">系统比较 activation patching 的评价指标和破坏输入的方式，发现这些细节会改变定位结论。第四轮对每次 patching 同时报告拒答率、答对率和知识读数三个指标。</span></li>
+    <li><a href="https://arxiv.org/abs/2404.15255">How to use and interpret activation patching</a><span class="meta">Stefan Heimersheim, Neel Nanda · arXiv 2024</span><span class="why">activation patching 的用法和解读指南，包括替换方向不同（把干净运行的状态换进被破坏的运行，或者反过来）时结论的含义也不同。第四轮“打开”和“关上”两个方向的结果不对称，需要分开解读。</span></li>
   </ol>
   <h3 class="tier">综述、立场与其他代表性工作</h3>
   <ol class="refs">
@@ -691,12 +845,13 @@ details > :not(summary) { margin-bottom: 0.9rem; }
       <tr><td class="name">第一轮</td><td><code>~/MMU/runs/ctrl/</code></td><td><code>ctrl_report_s0.txt</code>，稳健性检查在 <code>ctrl_robust_s0.txt</code></td></tr>
       <tr><td class="name">第二轮</td><td><code>~/MMU/runs/cot_audit_s0/</code></td><td><code>cot_audit_report.md</code>；全部表格在 <code>cot_audit_tables.txt</code>，学习率扫描在 <code>scan_report.txt</code>，干预在 <code>causal_report.txt</code></td></tr>
       <tr><td class="name">第三轮</td><td><code>~/MMU/runs/utility_recovery_s0/</code></td><td>按主口径的重分析：<code>counterfactual_utility/counterfactual_utility_report.md</code>（定义在 <code>definitions.md</code>，汇总在 <code>method_summary.csv</code>）；原分析：<code>utility_recovery_report.md</code>（表格在 <code>tables.txt</code>，结果在 <code>metrics_test.csv</code>）</td></tr>
+      <tr><td class="name">第四轮</td><td><code>~/MMU/runs/idk_gate_audit_s0/</code></td><td><code>idk_gate_audit_report.md</code>；摘要在 <code>idk_gate_audit_summary.txt</code>，事先规则在 <code>decision_rules.md</code>，图在 <code>figures/</code>，所有方法的 NR 和 ΔNR 在 <code>normalized_recovery_all_methods.csv</code></td></tr>
     </tbody>
   </table></div>
-  <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>。</p>
+  <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>，第四轮是 <code>gate_*.py</code>。</p>
 </section>
 
-<footer>这个页面是静态快照，最后一次更新在第三轮完成之后（2026-11-19）。</footer>
+<footer>这个页面是静态快照，最后一次更新在第四轮完成之后（2026-11-20）。</footer>
 
 </div>
 <script>
@@ -776,6 +931,44 @@ function tracks(id, cfg) {
     series: [{ name: "更新前", cls: "hollow" }, { name: "口径 A", cls: "s1" }, { name: "口径 B", cls: "s2" }],
     rows: pur.map(function (r) { return { label: r[0], link: [r[3], r[5]], pts: [{ s: 0, v: r[1], sig: r[2] }, { s: 2, v: r[5], sig: r[6] }, { s: 1, v: r[3], sig: r[4] }],
       vals: "更新前 " + sval(r[1]) + (r[2] ? "*" : "") + " · A " + sval(r[3]) + (r[4] ? "*" : "") + " · B " + sval(r[5]) + (r[6] ? "*" : "") }; }) });
+
+  /* round 4: change of the layer-band answer margin from before to after the same update (lr 1e-4, step 5), 15 test persons.
+     per band: IDK, Oracle, Full estimates and their marks ("*" CI excludes 0, "*†" CI excludes 0 but not after Holm) */
+  var tk = function (v) { return v === 0 ? "0" : (v < 0 ? "−" : "+") + Math.abs(v).toFixed(2); };
+  var bandchg = [["前层带", "第 1–11 层", 0.00072, "", -0.002178, "", -0.000574, ""], ["中间层带", "第 12–21 层", 0.008531, "*†", -0.00252, "", 0.003772, ""],
+                 ["后层带", "第 22–32 层", -0.020292, "*", 0.021674, "", -0.049976, "*"]];
+  var mark = function (m) { return m === "*" ? "，区间不含 0" : m === "*†" ? "，区间不含 0，Holm 校正后不显著" : ""; };
+  tracks("c7", { min: -0.06, max: 0.04, ticks: [-0.06, -0.04, -0.02, 0, 0.02, 0.04], tickfmt: tk, fmt: sv3, refs: [0], bands: [[-0.018, 0.018]],
+    series: [{ name: "IDK", cls: "s1" }, { name: "Oracle", cls: "s2" }, { name: "Full", cls: "s3" }],
+    rows: bandchg.map(function (r) { return { label: r[0], sub: r[1],
+      pts: [{ s: 2, v: r[6], note: mark(r[7]).slice(1) || null }, { s: 1, v: r[4], note: mark(r[5]).slice(1) || null }, { s: 0, v: r[2], note: mark(r[3]).slice(1) || null }],
+      vals: "IDK " + sv3(r[2]) + r[3] + " · Oracle " + sv3(r[4]) + r[5] + " · Full " + sv3(r[6]) + r[7] }; }) });
+
+  /* round 4: refusal rate and correct answers of IDK under the frozen steering and under residual patching, 15 test persons */
+  var v2 = function (v) { return v.toFixed(2); };
+  var gate = function (id, oracle, rows) {
+    tracks(id, { min: 0, max: 1, ticks: [0, 0.25, 0.5, 0.75, 1], tickfmt: plain, fmt: v2, refs: [oracle],
+      series: [{ name: "拒答率", cls: "hollow" }, { name: "答对率", cls: "s1" }],
+      rows: rows.map(function (r) {
+        var pts = [];
+        r.ref.forEach(function (v) { pts.push({ s: 0, v: v }); }); r.hit.forEach(function (v) { pts.push({ s: 1, v: v }); });
+        return { label: r.l, sub: r.sub, pts: pts, vals: r.vals || "拒答 " + v2(r.ref[0]) + " · 答对 " + v2(r.hit[0]) }; }) });
+  };
+  gate("c8a", 0.188, [
+    { l: "不干预", sub: "IDK 更新前", ref: [1.000], hit: [0.000] },
+    { l: "减拒答方向", sub: "第 30 层 steering", ref: [0.645], hit: [0.152] },
+    { l: "减随机方向", sub: "第 30 层，3 个方向", ref: [0.986, 0.993, 1.000], hit: [0.007, 0.000, 0.000], vals: "拒答 ≥ 0.99 · 答对 ≤ 0.01" },
+    { l: "减 retain 人物方向", sub: "第 30 层 steering", ref: [0.978], hit: [0.014] },
+    { l: "换入 Oracle 的 residual", sub: "第 1 层", ref: [0.014], hit: [0.225] },
+    { l: "换入 Full 的 residual", sub: "第 1 层", ref: [0.399], hit: [0.536] },
+    { l: "换入更新后的 residual", sub: "第 13 层", ref: [0.551], hit: [0.341] },
+    { l: "换入更新后的 residual", sub: "第 24 层", ref: [0.304], hit: [0.493] }]);
+  gate("c8b", 0.181, [
+    { l: "不干预", sub: "IDK 更新后", ref: [0.130], hit: [0.601] },
+    { l: "加拒答方向", sub: "第 32 层 steering", ref: [0.551], hit: [0.333] },
+    { l: "加随机方向", sub: "第 32 层 steering", ref: [0.130], hit: [0.616] },
+    { l: "加 retain 人物方向", sub: "第 32 层 steering", ref: [0.036], hit: [0.667] },
+    { l: "换回更新前的 residual", sub: "第 4 层", ref: [0.826], hit: [0.138] }]);
 })();
 </script>
 </body>
