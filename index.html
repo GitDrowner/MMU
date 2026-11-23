@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MLLMU 遗忘审计汇总</title>
-<meta name="description" content="LLaVA-1.5-7B 多模态遗忘六轮实验的阶段汇总：重学对照、推理路径审计、utility 约束下的恢复、拒答闸门与 hidden state 的因果审计、复现与攻击对照、三个 Oracle 种子与 Qwen2.5-VL 上的复现。">
+<meta name="description" content="LLaVA-1.5-7B 多模态遗忘七轮实验的阶段汇总：重学对照、推理路径审计、utility 约束下的恢复、拒答闸门与 hidden state 的因果审计、复现与攻击对照、三个 Oracle 种子与 Qwen2.5-VL 上的复现、其他方法的去模板化复核与第二个 Qwen Oracle 种子。">
 <meta name="color-scheme" content="light dark">
 <style>
 html { -webkit-text-size-adjust: 100%; }
@@ -59,7 +59,7 @@ header.top { display: flex; flex-direction: column; gap: 1rem; }
 .pill::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: currentColor; }
 .pill.done { background: var(--good-soft); color: var(--good); } .pill.run { background: var(--warn-soft); color: var(--warn); } .pill.wait { background: var(--rule2); color: var(--muted); }
 @media (min-width: 721px) and (max-width: 1000px) { .rail { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stop:nth-child(2n) { border-right: 0; } .stop:nth-child(2n+1) { padding-left: 0; } .stop:nth-child(n+3) { border-top: 1px solid var(--rule); } }
-@media (min-width: 1001px) { .stop:nth-child(3n) { border-right: 0; } .stop:nth-child(3n+1) { padding-left: 0; } .stop:nth-child(n+4) { border-top: 1px solid var(--rule); } }
+@media (min-width: 1001px) { .rail { grid-template-columns: repeat(4, minmax(0, 1fr)); } .stop:nth-child(4n) { border-right: 0; } .stop:nth-child(4n+1) { padding-left: 0; } .stop:nth-child(n+5) { border-top: 1px solid var(--rule); } }
 @media (max-width: 720px) { .rail { grid-template-columns: 1fr; } .stop { border-right: 0; border-bottom: 1px solid var(--rule); padding: 0.8rem 0; } .stop:last-child { border-bottom: 0; } }
 
 .key { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--rule); max-width: 52rem; }
@@ -151,18 +151,19 @@ details > :not(summary) { margin-bottom: 0.9rem; }
 .round h4.sub { font-size: 1.02rem; font-weight: 600; line-height: 1.4; margin: 0.8rem 0 0; padding-top: 1rem; border-top: 1px solid var(--rule); }
 @media (min-width: 641px) { #c9a .trow, #c9b .trow { grid-template-columns: 8.6rem minmax(0, 1fr) 11.5rem; } #c10 .trow { grid-template-columns: 10rem minmax(0, 1fr) 13.5rem; }
   #c11 .trow { grid-template-columns: 11rem minmax(0, 1fr) 12.5rem; } #c9a .vals, #c9b .vals, #c10 .vals, #c11 .vals { white-space: normal; } }
-@media (min-width: 641px) { #c12 .trow, #c13 .trow { grid-template-columns: 11rem minmax(0, 1fr) 14rem; } #c12 .vals, #c13 .vals { white-space: normal; } }
+@media (min-width: 641px) { #c12 .trow, #c13 .trow, #c14 .trow, #c15 .trow { grid-template-columns: 11rem minmax(0, 1fr) 14rem; } #c12 .vals, #c13 .vals, #c14 .vals, #c15 .vals { white-space: normal; } }
 table.q6 td:nth-child(2), table.q6 td:nth-child(3) { min-width: 13rem; } table.q6 td:last-child, table.q6 th:last-child { white-space: nowrap; }
 table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-width: 12rem; }
+table.r7 td:nth-child(2) { min-width: 9rem; } table.r7 td:nth-child(3) { min-width: 18rem; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <header class="top">
-  <p class="eyebrow">阶段汇总 · 截至 2026-11-22 · 六轮均已完成</p>
+  <p class="eyebrow">阶段汇总 · 截至 2026-11-22 · 七轮均已完成</p>
   <h1>多模态遗忘评测：做了什么，现在知道什么</h1>
-  <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物）。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。前四轮只用一个数据划分、一个随机种子。第四轮在 hidden state 上检查 IDK 的“遗忘”是不是只是一层拒答，之后补做了另外四种方法。第五轮在另外 50 个人物上复现 IDK 的结果，训练了第二个 Oracle 种子，并比较了三种攻击。第六轮训练了第三个 Oracle 种子，并在第二种架构 Qwen2.5-VL-7B 上复现 IDK 审计的最精简版本。</p>
+  <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物）。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。前四轮只用一个数据划分、一个随机种子。第四轮在 hidden state 上检查 IDK 的“遗忘”是不是只是一层拒答，之后补做了另外四种方法。第五轮在另外 50 个人物上复现 IDK 的结果，训练了第二个 Oracle 种子，并比较了三种攻击。第六轮训练了第三个 Oracle 种子，并在第二种架构 Qwen2.5-VL-7B 上复现 IDK 审计的最精简版本。第七轮用不含答案模板的读数复核另外四种方法的 hidden-state 结论，并为 Qwen 训练了第二个 Oracle 种子。</p>
   <div class="rail">
     <div class="stop"><span class="n">第一轮</span><span class="t">四组重学对照</span><span class="pill done">已完成</span><span class="d">用无关数据微调，恢复得和用真实标签差不多。但这种微调代价很大。</span></div>
     <div class="stop"><span class="n">第二轮</span><span class="t">推理路径审计</span><span class="pill done">已完成</span><span class="d">让模型先写推理不会多暴露知识。换一种问法会。</span></div>
@@ -170,6 +171,7 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
     <div class="stop"><span class="n">第四轮</span><span class="t">IDK 拒答闸门的因果审计</span><span class="pill done">已完成</span><span class="d">知识在 hidden state 里基本完好，更新没有让它增加。拒答可以被因果地开关，但它在第 1 层就被触发、由很多层写入，不是一个后层闸门。另外四种方法里，只有 NPO 在更新前有可检测的残留；挡住它的主要是对答案开头的压制。</span></div>
     <div class="stop"><span class="n">第五轮</span><span class="t">复现、第二个 Oracle 种子、三种攻击</span><span class="pill done">已完成</span><span class="d">IDK 的结论在另外 50 个人物上重复，但“触发信号只在图像 token 里”不成立。换一个 Oracle 种子，主要结论不变，卡在边界上的会变。三种攻击里普通无关更新最有效。</span></div>
     <div class="stop"><span class="n">第六轮</span><span class="t">第三个 Oracle 种子、Qwen2.5-VL 复现</span><span class="pill done">已完成</span><span class="d">三个种子下，大效应不变，卡在预算或显著性边界上的要同时报告四个锚点。Qwen 上 IDK 同样把知识压在拒答闸门之后，但中间层读不出残留，5 个点预算内也找不到对三个模型都可行的开闸更新。</span></div>
+    <div class="stop"><span class="n">第七轮</span><span class="t">去模板复核、第二个 Qwen Oracle 种子</span><span class="pill done">已完成</span><span class="d">去掉所有候选共有的答案模板后，NPO 的中后层残留仍在，并在另外 10 人上复现；输出层压低的主要是答案开头，不是值。Qwen 的第二个 Oracle 对更新没那么脆弱，但两个 Oracle 都不超预算时，仍只在 10 个点预算下开闸。</span></div>
   </div>
 </header>
 
@@ -207,11 +209,11 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
   </ul>
   <h3 class="tier">第四轮补充：另外四种方法的 hidden state（s0，规则都在运行前写定）</h3>
   <ul class="key">
-    <li><span>16</span><span><b>NPO 和 GA-Diff ep2 在中后层保有与身份绑定、高于 Oracle 的读数，但到输出层都消失。</b>按事先规则，只有 NPO 在更新前的中间层带显著高于 Oracle（+0.037，Holm 0.029）；KL-Min、GA-Diff ep10 都没有检测到。第一次分析事后看到第 20–28 层的优势，事先固定这个窗口后，在另外 10 个人物上对 NPO（+0.118）和 GA-Diff ep2（+0.090）重复成立，并且换成别人的图像就消失。同一个小更新抬高了 NPO、GA-Diff ep2、KL-Min 的后层读数（+0.08 到 +0.19），Oracle 不变。<span class="tag mid">窗口是事后发现、事先登记后重复的</span></span></li>
+    <li><span>16</span><span><b>NPO 和 GA-Diff ep2 在中后层保有与身份绑定、高于 Oracle 的读数，但到输出层都消失。</b>按事先规则，只有 NPO 在更新前的中间层带显著高于 Oracle（+0.037，Holm 0.029）；KL-Min、GA-Diff ep10 都没有检测到。第一次分析事后看到第 20–28 层的优势，事先固定这个窗口后，在另外 10 个人物上对 NPO（+0.118）和 GA-Diff ep2（+0.090）重复成立，并且换成别人的图像就消失。同一个小更新抬高了 NPO、GA-Diff ep2、KL-Min 的后层读数（+0.08 到 +0.19），Oracle 不变。第七轮用不含模板的读数复核：NPO 的结论成立；GA-Diff ep2 的身份绑定只在以种子 42 的 Oracle 为锚时重复，“已重复”撤回；在输出层消失的主要是答案开头（第 25、26 条）。<span class="tag mid">窗口是事后发现、事先登记后重复的</span><span class="tag mid">第七轮部分更正</span></span></li>
     <li><span>17</span><span><b>挡住 NPO 输出的主要是对答案开头的压制，这个压制与身份无关。</b>每道题的所有候选句共用第一个词元（"The"、"This"）。NPO 在遗忘人物上把它的对数概率压到 −35（Oracle −0.3，retain 人物上 −0.09），压制在最后 3 层形成，第三轮的更新把它去掉（−0.5）。把 NPO 前几层的状态换成 Oracle 的，输出读数大幅上升，但换成另一个遗忘人物的图像也一样（+0.891 对 +0.894）。与身份绑定的部分只在不受开头影响的十选一（按总和打分）上看得到：比 Oracle 多 +0.11，只在正确图像下出现。<span class="tag mid">压制是事后诊断出来的</span></span></li>
     <li><span>18</span><span><b>NPO 的优势由它自己的中后层算出，压制也不在最后几层的权重里。</b>把 Oracle 前 11 层的状态换进 NPO，第 28 层的优势基本不变（−0.020 [−0.106, +0.070]）。把 NPO 或 GA-Diff ep2 最后 2 层或 4 层的权重换成 Oracle 的，事先登记的三项预测都不成立。<span class="tag ok">事先登记</span></span></li>
   </ul>
-  <p class="note col">第 16–18 条用的逐层读数是整句平均的 margin，所有候选共用的答案开头会混进来；第 17 条就是这样发现的。IDK 的结论在第五轮用不含模板的读数复核过，另外四种方法还没有。</p>
+  <p class="note col">第 16–18 条用的逐层读数是整句平均的 margin，所有候选共用的答案开头会混进来；第 17 条就是这样发现的。IDK 的结论在第五轮用不含模板的读数复核过，另外四种方法在第七轮复核，见第 25–27 条。</p>
   <h3 class="tier">第五轮：复现、第二个 Oracle 种子、三种攻击（规则都在运行前写定）</h3>
   <ul class="key">
     <li><span>19</span><span><b>IDK 的第四轮结论在另外 50 个人物上重复。</b>在 forget_10（与之前的人物只重合 1 人）上重新训练 IDK 和 Oracle，用同一个更新，在 40 个测试人物上按第四轮的规则原样检验：分类同为 B，事先登记的五条预测全部成立。同一更新后，IDK 的答对率高出同更新的 Oracle +0.50*（40 人全部为正；s0 是 +0.42*）。用不含模板的读数，K1、K2、K6 的结论不变。<span class="tag ok">预注册复现</span></span></li>
@@ -222,20 +224,27 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
   <ul class="key">
     <li><span>22</span><span><b>三个 Oracle 种子：远离边界的结论不变，卡在边界上的要同时报告四个锚点。</b>三个 Oracle 在遗忘人物上的十选一是 0.265、0.240、0.243；同一更新下 Oracle 轨迹之差的 90 分位从两个种子时的 0.024 升到 0.034。按事先写定的规则，论文改以三个种子的平均 Oracle 作锚点。第三轮主口径的 45 条结论里，16 条在三个单种子锚点和平均锚点下类别都不变，可以直接陈述，包括 IDK 在 10 个点预算下的闸门坍塌（平均锚点 +0.437*）、NPO 在 10 个点预算下的更新后残留（+0.149*，由更新带来的部分仍不显著）、GA-Diff ep10 低于 Oracle。其余 29 条要同时报告四个锚点，包括 5 个点预算下 IDK 的闸门坍塌（第三轮的更新只在原 Oracle 下可行）和多数 2、5 个点预算下的结论，因为种子 44 对更新最敏感。更新前残留里，IDK（平均锚点 +0.605*）、GA-Diff ep10（−0.202*）和 KL-Min（不显著）在四个锚点下类别不变；NPO 和 GA-Diff ep2 只在种子 43 下显著，平均锚点下是 +0.074 和 +0.089，不显著。<span class="tag ok">事先登记的报告规则</span></span></li>
     <li><span>23</span><span><b>在 Qwen2.5-VL-7B 上，IDK 同样只是在基本完好的知识上加了一道拒答闸门，同一个无关小更新也能打开它。</b>按 LLaVA 的配方训练 Full、Oracle 和 IDK，用同样的题、同样的 15 个测试人物和同样的更新网格。IDK 对遗忘人物 100% 拒答，十选一仍有 0.93（Oracle 0.29，Full 0.98），高出 Oracle +0.641*，15 人全部为正（LLaVA +0.587*）。LLaVA 第三轮的那个更新（lr 1e-4 × 5 步）把拒答降到 0.33，答对率高出同更新的 Oracle +0.391*（只约束 IDK 自身 utility 时；LLaVA 是拒答 0.13、+0.428*）。主口径 10 个点预算下，更温和的 lr 5e-5 × 10 步把拒答降到 0.60，高出 Oracle +0.210*。<span class="tag ok">Q1 预注册成立</span><span class="tag mid">开闸来自同族检验和补充口径</span></span></li>
-    <li><span>24</span><span><b>但按事先规则只算“部分复现”：中间层带读不出残留，5 个点主口径下也找不到可行的开闸更新。</b>按相对深度换算的中间层带（第 10–18 层）IDK 减 Oracle 是 −0.009，换成别人的图像也没有差别；同一族检验里的后层带（第 19–28 层）是 +0.369*。事后看，残留和身份绑定都从第 21 层（共 28 层）起才持续显著，后层带的身份绑定 +0.324*，15 人全部为正；而 Oracle 对自己学过的人物，用同一读法也要到第 22 层才读得出（LLaVA 是 32 层中的第 19 层）。所以 LLaVA 的层带位置不能按相对深度搬到 Qwen 上。5 个点预算下选中的更新不开闸（拒答仍为 1.00）：所有能开闸的更新都让 Oracle 的 retain 降 8.1 个点以上，LLaVA 的那个更新让它降 14.3 个点，而同一更新下 IDK 和 Full 只降 3.4 和 2.7 个点。Q4 按规则机械地不成立：它的阈值取中间层带估计的三分之一，估计不大于 0 时直接判为不成立。<span class="tag mid">预注册：Q1 成立，Q2–Q4 不成立；逐层分析是事后的</span></span></li>
+    <li><span>24</span><span><b>但按事先规则只算“部分复现”：中间层带读不出残留，5 个点主口径下也找不到可行的开闸更新。</b>按相对深度换算的中间层带（第 10–18 层）IDK 减 Oracle 是 −0.009，换成别人的图像也没有差别；同一族检验里的后层带（第 19–28 层）是 +0.369*。事后看，残留和身份绑定都从第 21 层（共 28 层）起才持续显著，后层带的身份绑定 +0.324*，15 人全部为正；而 Oracle 对自己学过的人物，用同一读法也要到第 22 层才读得出（LLaVA 是 32 层中的第 19 层）。所以 LLaVA 的层带位置不能按相对深度搬到 Qwen 上。5 个点预算下选中的更新不开闸（拒答仍为 1.00）：所有能开闸的更新都让 Oracle 的 retain 降 8.1 个点以上，LLaVA 的那个更新让它降 14.3 个点，而同一更新下 IDK 和 Full 只降 3.4 和 2.7 个点。Q4 按规则机械地不成立：它的阈值取中间层带估计的三分之一，估计不大于 0 时直接判为不成立。第七轮补充：“降 8.1 个点以上”只对 Qwen 的 Oracle 种子 42 成立，第二个种子在 lr 5e-5 × 10 步只降 1.7 个点（第 28 条）；预注册判定不变。<span class="tag mid">预注册：Q1 成立，Q2–Q4 不成立；逐层分析是事后的</span></span></li>
+  </ul>
+  <h3 class="tier">第七轮：另外四种方法的去模板化复核、第二个 Qwen Oracle 种子（规则都在运行前写定）</h3>
+  <ul class="key">
+    <li><span>25</span><span><b>去掉所有候选共有的答案模板后，NPO 在第 20–28 层仍高于 Oracle 并与身份绑定，在另外 10 人上也成立。</b>只算共有前缀之后的 token，NPO 高出三个 Oracle 种子的平均 +0.42*（15 个发现人物）和 +0.25*（另外 10 人），身份绑定 +0.31* 和 +0.19*。三个种子分别作锚、只看属性值的 token、换一种改写的答案模板，都成立。GA-Diff ep2 高出 Oracle 在两组人物上都成立，但身份绑定只在发现人物上成立。KL-Min 只在发现人物上成立，并且集中在正确答案比干扰项长的题目。GA-Diff ep10 的身份绑定是负的，不算残留。<span class="tag ok">事先登记，NPO 已复现</span><span class="tag mid">窗口是第四轮事后发现的</span></span></li>
+    <li><span>26</span><span><b>输出层的“消失”主要是答案开头被压低，不是属性值读不出来。</b>四种方法在输出层都把所有候选共有的答案开头压得很低，相对 Oracle：NPO −75、GA-Diff ep2 −15、KL-Min −24、GA-Diff ep10 −1459 nats。给定开头之后，NPO 在输出层读出属性值的能力与 Oracle 无法区分（+0.19，区间含 0，三个种子作锚都如此）。它在整句平均读数下的输出层亏损随候选长度变号（正确答案更短 −1.78*，相近 −0.25，更长 +0.84*），是被压低的模板 token 与长度一起造成的。KL-Min 和 GA-Diff ep10 在输出层的属性值读数确实低于 Oracle。<span class="tag ok">事先登记</span><span class="tag mid">长度分组是事后的</span></span></li>
+    <li><span>27</span><span><b>同一个无关小更新改的主要是输出通道。</b>lr 1e-4 × 5 步撤掉了 NPO 的开头压制（相对 Oracle −75 → −0.7），并让 NPO、GA-Diff ep2、KL-Min 在输出层的属性值可读性超过同更新的 Oracle（+0.86*、+0.66*、+1.92*，Holm 校正后显著）。NPO 第 20–28 层的读数不变（+0.02）；GA-Diff ep2 和 KL-Min 在这个窗口只小幅上升（+0.13*、+0.16*）。<span class="tag ok">事先登记</span></span></li>
+    <li><span>28</span><span><b>Qwen 的第二个 Oracle 种子对更新没有第一个那么脆弱，但两个 Oracle 都不超预算时，仍只在 10 个点预算下开闸。</b>两个 Oracle 在遗忘人物上的十选一几乎相同（0.270、0.281）。同一更新下，凡是有明显下降的检查点，种子 43 都比种子 42 降得少（20 个里 20 个），但闸门大部分打开后仍降 10–30 个点，多于 IDK 和 Full。要求 IDK、Full 和两个 Oracle 都不超预算时，2 和 5 个点下选中的更新不开闸，10 个点下选中 lr 5e-5 × 10 步，拒答 1.00 → 0.60，GEN 随锚点在 +0.17* 到 +0.21* 之间。只以种子 43 或两个种子的平均作约束时，这个更新在 5 个点下也可行。开闸后 IDK 后层带的残留没有上升（−0.03），在事先定的等价界之内。<span class="tag ok">事先登记</span><span class="tag mid">5 个点下是否可行取决于用哪个 Oracle 作约束</span></span></li>
   </ul>
   <h3 class="tier">对论文的含义（我的建议，待你确认）</h3>
   <ul class="col">
     <li><b>以 Oracle 为锚的评测是方法上的核心：</b>同一读法、同一更新也施加在 Oracle 上，才能把残留知识和读法或更新本身的效应分开。</li>
     <li><b>utility 约束要对三个模型同时成立，而且要先过 release gate。</b>只看被攻击模型自己的 utility，会把对健康模型有破坏性的更新当成良性更新；在 release 时就已受损的模型，它的"恢复"要单独标注。</li>
-    <li><b>拒答式遗忘（IDK）只在完好的知识上加了一层拒答：</b>知识在 hidden state 里基本完整，闸门在一个对三个模型都很小的良性更新下就会打开。这个闸门在最早几层就被触发、由很多层写入，两组人物上都是如此。论文里应写成 early-triggered, distributed refusal gate，不要写成后层闸门，也不要写触发信号只在图像 token 里。适合作为反例报告。在 Qwen2.5-VL-7B 上，知识同样压在闸门之后，同一个更新也能打开它，但这个更新让 Qwen 的 Oracle 降 14 个点。</li>
-    <li><b>hidden-state 证据以因果干预为准：</b>余弦、CKA 这类原始距离分不开知识和其他训练差异；能区分“知识还在”的，是与身份绑定的中层读数，以及“换入 Oracle 的状态后还能不能答对”。逐层 margin 还要用不含模板的读数或按总和打分的十选一复核：所有候选共用的答案开头会混进整句平均的 margin，NPO 的答案开头压制差点被读成“放出的知识”。Counterfactual Trajectory Matching 如果要做，建议只做一个窄版本，见“等待决定的事”。</li>
+    <li><b>拒答式遗忘（IDK）只在完好的知识上加了一层拒答：</b>知识在 hidden state 里基本完整，闸门在一个对三个模型都很小的良性更新下就会打开。这个闸门在最早几层就被触发、由很多层写入，两组人物上都是如此。论文里应写成 early-triggered, distributed refusal gate，不要写成后层闸门，也不要写触发信号只在图像 token 里。适合作为反例报告。在 Qwen2.5-VL-7B 上，知识同样压在闸门之后，同一个更新也能打开它，但这个更新让 Qwen 的第一个 Oracle 种子降 14 个点，第二个降 5.5 个点。</li>
+    <li><b>hidden-state 证据以因果干预为准：</b>余弦、CKA 这类原始距离分不开知识和其他训练差异；能区分“知识还在”的，是与身份绑定的中层读数，以及“换入 Oracle 的状态后还能不能答对”。逐层 margin 还要用不含模板的读数或按总和打分的十选一复核：所有候选共用的答案开头会混进整句平均的 margin，NPO 的答案开头压制差点被读成“放出的知识”。第七轮的复核表明，NPO 第 20–28 层的残留不受影响，但输出层的结论要改用只看属性值的读数。Counterfactual Trajectory Matching 如果要做，建议只做一个窄版本，见“等待决定的事”。</li>
     <li><b>审计时把普通无关小更新作为标准攻击。</b>按机制定向的攻击（只在第 13–24 层文本位置训练的 LoRA、后层 steering）在同一预算下都不如它。</li>
-    <li><b>以三个 Oracle 种子的平均作锚点；卡在显著性或预算边界上的结论同时报告四个锚点。</b>这是第六轮事先写定的规则：16 条结论可以直接陈述，29 条要标为对锚点敏感，所有“5 个点预算内”的说法都属于后者。小于约 0.03 的差异落在 Oracle 自身的种子差异之内。</li>
+    <li><b>以三个 Oracle 种子的平均作锚点；卡在显著性或预算边界上的结论同时报告四个锚点。</b>这是第六轮事先写定的规则：16 条结论可以直接陈述，29 条要标为对锚点敏感，所有“5 个点预算内”的说法都属于后者。小于约 0.03 的差异落在 Oracle 自身的种子差异之内。Qwen 上也一样：5 个点预算下能否开闸，取决于用哪个 Oracle 作约束。</li>
     <li><b>UID 的定义需要再考虑。</b>现在的 UID 只比 PUR 少一个与更新无关的常数，按 UID 选和按 PUR 选必然是同一个检查点。要让两者能选出不同的检查点，需要一个随更新变化的基线。</li>
-    <li><b>IDK 的结论已在第二组人物和第二种架构上检验，Oracle 有三个种子。</b>Qwen2.5-VL-7B 上只做了 IDK 的最精简审计：知识压在拒答闸门之后、同一个小更新能打开闸门，这两点成立；残留出现的层带不能按相对深度在模型之间换算，应以该模型能读出已知人物知识的深度为参照。其他方法的结论仍只来自 LLaVA 的一组人物，遗忘模型本身都只有一个种子。</li>
+    <li><b>IDK 的结论已在第二组人物和第二种架构上检验，Oracle 有三个种子。</b>Qwen2.5-VL-7B 上只做了 IDK 的最精简审计：知识压在拒答闸门之后、同一个小更新能打开闸门，这两点成立；残留出现的层带不能按相对深度在模型之间换算，应以该模型能读出已知人物知识的深度为参照。其他方法的结论仍只来自 LLaVA 的一组人物；Qwen 的 Oracle 有两个种子，遗忘模型本身都只有一个种子。</li>
   </ul>
-  <p class="note">文中 * 表示 95% 置信区间不含 0。区间来自按人物聚类的 bootstrap（10,000 次重采样），模型之间的差是配对差。第三轮写"Holm 校正后"的地方，是对 5 个方法 × 3 个预算共 15 个比较做的校正。第三轮的最终测试只有 15 个人物，第四轮和第五轮的 s0 部分沿用这 15 个人物；第五轮的 forget_10 有 40 个测试人物（377 题）。第六轮的 Qwen 审计用的也是这 15 个人物。Holm 校正在每一族检验内部做。</p>
+  <p class="note">文中 * 表示 95% 置信区间不含 0。区间来自按人物聚类的 bootstrap（10,000 次重采样），模型之间的差是配对差。第三轮写"Holm 校正后"的地方，是对 5 个方法 × 3 个预算共 15 个比较做的校正。第三轮的最终测试只有 15 个人物，第四轮和第五轮的 s0 部分沿用这 15 个人物；第五轮的 forget_10 有 40 个测试人物（377 题）。第六轮的 Qwen 审计用的也是这 15 个人物。第七轮的 LLaVA 复核以这 15 人为发现组，另外 10 人（5 个验证人物和 5 个第一轮的重学人物）为复现组，Qwen 部分仍是这 15 个测试人物。Holm 校正在每一族检验内部做。</p>
 </section>
 
 <section>
@@ -283,7 +292,7 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
 </section>
 
 <section>
-  <h2>六轮实验</h2>
+  <h2>七轮实验</h2>
   <div class="rounds">
 
     <div class="round">
@@ -813,6 +822,98 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
       </div>
     </div>
 
+    <div class="round">
+      <div class="n">07</div>
+      <div class="body">
+        <div class="hd"><h3>另外四种方法的去模板化复核、第二个 Qwen Oracle 种子</h3><span class="pill done">已完成 · 11 月 22 日</span></div>
+        <p class="col">这一轮只做两件事，目的是检验已有结论，不是找支持。第一，用不含答案模板的读数重新检查第四轮补充里另外四种方法的 hidden-state 结论。第二，为 Qwen2.5-VL-7B 训练第二个 Oracle 种子，判断第六轮里 Qwen 的 Oracle 对更新格外脆弱，是配方的性质还是种子的偶然。规则在 2026-11-22 08:16 UTC 写定，08:19 补了五条澄清，当时还没有任何 GPU 输出；写定后文件设为只读。这是带时间戳的内部预登记，不是第三方预注册。</p>
+
+        <h4 class="sub">另外四种方法的去模板化复核（LLaVA）</h4>
+        <p class="col">第四轮补充的逐层读数把整句答案的对数似然取平均，所有候选共用的答案开头会混进来（第 17 条）。这一轮对同样的 9 个模型（Full、三个 Oracle 种子、IDK 和四种方法），在更新前后、正确图像和换成别人的图像下逐个 token 重新打分，再算几种读数：</p>
+        <ul class="col">
+          <li>整句平均：旧读数，只用来和旧数字对账；</li>
+          <li>整句求和的十选一；</li>
+          <li>去掉所有候选共有的前缀后取平均：主读数；</li>
+          <li>只看属性值的那几个 token；</li>
+          <li>共有前缀本身的对数似然，即“答案开头”。</li>
+        </ul>
+        <p class="col">另做两种改写的答案模板作敏感性分析。主检验事先固定在第四轮发现的第 20–28 层窗口，以三个 Oracle 种子的平均为锚，在 15 个发现人物上检验，再在另外 10 人上复现。</p>
+        <div class="stats">
+          <div class="stat"><div class="v">56 / 56</div><div class="k">用旧读数和旧锚点重算第四轮补充报告里的数字，全部复现到小数点后三位</div></div>
+          <div class="stat"><div class="v">+0.42* / +0.25*</div><div class="k">NPO 第 20–28 层高出 Oracle（去模板读数），15 个发现人物 / 另外 10 人</div></div>
+          <div class="stat"><div class="v">−75</div><div class="k">NPO 在输出层把共有的答案开头压低多少（nats，相对 Oracle）；同一小更新后只剩 −0.7</div></div>
+          <div class="stat"><div class="v">+0.02</div><div class="k">同一更新对 NPO 第 20–28 层属性值读数的改变，不显著；输出层是 +0.86*</div></div>
+        </div>
+        <div class="panel">
+          <h3>去掉答案模板后，谁在第 20–28 层仍高于 Oracle、并与身份绑定</h3>
+          <div class="legend"><span><i class="mk s1"></i>15 个发现人物</span><span><i class="mk hollow"></i>另外 10 人</span><span><i class="mk refl"></i>0</span></div>
+          <div class="tracks" id="c14"></div>
+          <p class="cap">读数是去掉所有候选共有的前缀后，每个 token 的平均对数似然 margin（正确答案减最强干扰项），以三个 Oracle 种子的平均为锚。“身份绑定”是正确图像下的差减去换成别人图像时的差。* 表示 95% 区间不含 0；四种方法带 * 的值，在事先登记的那族 8 个检验里 Holm 校正后也显著。GA-Diff ep10 的负绑定在双侧检验下显著。单位与旧读数不同，不能和第 16 条的数直接比大小。IDK 是正对照。</p>
+        </div>
+        <div class="tablewrap"><table class="r7">
+          <thead><tr><th>方法</th><th>按事先规则的分类</th><th>换锚点、换模板之后</th></tr></thead>
+          <tbody>
+            <tr><td class="name">NPO</td><td>去模板后仍有残留，与身份绑定，已复现</td><td>三个 Oracle 种子分别作锚、只看属性值、第二种改写模板下都成立；最短的模板“The answer is X.”下，另外 10 人的身份绑定不成立</td></tr>
+            <tr><td class="name">GA-Diff ep2</td><td>只在发现人物上成立</td><td>高出 Oracle 在两组人物、每个锚点下都成立；另外 10 人上的身份绑定只在以种子 42 的 Oracle 为锚时成立</td></tr>
+            <tr><td class="name">KL-Min</td><td>只在发现人物上成立</td><td>集中在正确答案比干扰项长的题目；最短模板下消失；以种子 42 为锚时区间碰到 0</td></tr>
+            <tr><td class="name">GA-Diff ep10</td><td>不与身份绑定</td><td>身份绑定在两组人物、所有模板和锚点下都是负的；按准确率算，它低于 Oracle；不算残留</td></tr>
+          </tbody>
+        </table></div>
+        <ul class="col">
+          <li><b>输出层：</b>四种方法都把共有的答案开头压得很低，相对 Oracle：NPO −75、GA-Diff ep2 −15、KL-Min −24、GA-Diff ep10 −1459 nats。NPO 的压制在第 30–32 层形成，此前与 Oracle 重合。给定开头之后，NPO 在输出层读出属性值的能力与 Oracle 无法区分（+0.19，区间含 0）。GA-Diff ep2 只在原模板下低于 Oracle；KL-Min 和 GA-Diff ep10 在所有模板下都低于 Oracle。</li>
+          <li><b>旧读数在输出层的“亏损”有一部分是伪影。</b>按正确答案比干扰项短、相近、长分组，NPO 输出层的整句平均 margin 依次为 −1.78*、−0.25、+0.84*；只看属性值时是 +0.03、+0.03、+0.89*。也就是说，被压低的模板 token 和候选长度一起决定了旧读数的符号。（分组是看到结果之后做的，只作描述。）</li>
+          <li><b>同一小更新（lr 1e-4 × 5 步）：</b>撤掉 NPO 的开头压制（+74 nats），并让 NPO、GA-Diff ep2、KL-Min 在输出层的属性值可读性超过同更新的 Oracle（+0.86*、+0.66*、+1.92*，Holm 校正后显著）。NPO 第 20–28 层不变（+0.02）；GA-Diff ep2 和 KL-Min 在这个窗口小幅上升（+0.13*、+0.16*）。更新改的主要是输出通道。</li>
+          <li><b>需要撤回或改写的三处：</b>
+            <ul>
+              <li>“GA-Diff ep2 与身份绑定的优势已在另外 10 人上重复”：去模板后只在以种子 42 的 Oracle 为锚时成立，原因是 Oracle 种子，不是模板。</li>
+              <li>把 NPO 输出层的旧读数亏损读成“值知识低于 Oracle”：这是长度和开头压制造成的伪影。</li>
+              <li>“另外三种方法的输出损失不是开头造成的”：当时只查了第一个词元，整段共有开头其实都被强烈压低。</li>
+            </ul></li>
+        </ul>
+
+        <h4 class="sub">第二个 Qwen Oracle 种子</h4>
+        <p class="col">用同一配方、种子 43 重新训练 Qwen 的 Oracle，共 18,300 步，与种子 42 只差种子；再施加第六轮全部 63 个更新配置，用同样的数据和 batch 顺序。可行性按四种规则同时报告，事先定的主敏感性规则最保守：IDK、Full 和两个 Oracle 都要各自不超预算。另外，在两个确实开闸的检查点上补做了逐层读数，等价界在运行前写定。</p>
+        <div class="stats">
+          <div class="stat"><div class="v">0.270 / 0.281</div><div class="k">两个 Qwen Oracle 在遗忘人物上的十选一，差 +0.011 [−0.040, +0.064]</div></div>
+          <div class="stat"><div class="v">0.081 → 0.017</div><div class="k">lr 5e-5 × 10 步让 Oracle 降的 retain（种子 42 → 43）；lr 1e-4 × 5 步是 0.143 → 0.055</div></div>
+          <div class="stat"><div class="v">+0.19*</div><div class="k">最保守规则下，10 个点预算的开闸更新后 IDK 高出两个 Oracle 的平均；以种子 42 / 43 为锚是 +0.21* / +0.17*</div></div>
+          <div class="stat"><div class="v">−0.03</div><div class="k">开闸后 IDK 后层带残留的变化（相对 Oracle），在事先定的等价界 ±0.12 之内</div></div>
+        </div>
+        <div class="panel">
+          <h3>同一个更新，两个 Qwen Oracle 付出的 retain 代价</h3>
+          <div class="legend"><span><i class="mk s1"></i>IDK</span><span><i class="mk s3"></i>Full</span><span><i class="mk hollow"></i>Oracle 种子 42</span><span><i class="mk s2"></i>Oracle 种子 43</span><span><i class="mk refl"></i>5 和 10 个点预算</span></div>
+          <div class="tracks" id="c15"></div>
+          <p class="cap">横轴是更新后 retain 十选一的下降（25 个 retain 人物，241 题），右栏第三行是同一更新后 IDK 在 15 个测试人物上的拒答率。在全部 20 个让任一 Oracle 降 2 个点以上的检查点上，种子 43 都比种子 42 降得少，平均少 5.5 个点；但从第二个开闸点起，它仍比 IDK 和 Full 降得多，闸门大部分打开时降 10–30 个点。</p>
+        </div>
+        <ul class="col">
+          <li><b>Qwen 的 Oracle 对更新敏感，两个种子都如此；敏感到什么程度，取决于种子。</b>第六轮说的“所有能开闸的更新都让 Oracle 降 8.1 个点以上”只对种子 42 成立，种子 43 在 lr 5e-5 × 10 步只降 1.7 个点。第六轮 Q1–Q4 的原判定不改。</li>
+          <li><b>两个 Oracle 都不超预算时，只有 10 个点预算下有生成释放。</b>新做的最保守选择与第六轮冻结的配置完全相同。2 和 5 个点下选中 lr 1e-5 × 60 步，闸门不开（拒答 1.00，GEN −0.15 到 −0.18）。10 个点下选中 lr 5e-5 × 10 步，拒答 1.00 → 0.60，三个锚点下都显著。只以种子 43 或两个种子的平均作约束时，这个更新在 5 个点下也可行（平均降 4.9 个点），但这是敏感性结果，不是主规则。</li>
+          <li><b>开闸没有带来更多可读出的知识。</b>在 lr 1e-4 × 5 步和 lr 5e-5 × 10 步两个开闸点：
+            <ul>
+              <li>IDK 后层带相对 Oracle 的残留变化是 −0.033 和 −0.023，身份绑定变化是 −0.050 和 −0.044。都是小幅、显著的下降，但都在事先定的等价界之内（原效应的三分之一）。</li>
+              <li>最终层十选一变化是 −0.042 和 −0.028，没有证明等价。</li>
+              <li>第六轮事后发现的后层残留，换第二个种子、去掉模板都成立；中间层带在任何读数下都是 0。</li>
+            </ul></li>
+        </ul>
+        <details>
+          <summary>一致性检查和披露</summary>
+          <ul class="col">
+            <li><b>对账：</b>第 32 层、以原 Oracle 为锚的十选一，与第三轮的静态 PUR 逐方法最多相差 0.0007，事先定的容差是 0.02。用旧读数重算第四轮补充的 56 个数字，全部一致。新 Qwen Oracle 接受的是同一个更新（配置、batch 序列、检查点 token 的哈希都相同），每个学习率都是 100 个成功步。</li>
+            <li><b>唯一的偏差：</b>运行前的 GPU 单元测试（只用 retain 人物）在 0.01 的容差下不通过。诊断是沿用第四到第六轮的分块打分，不同 batch 之间有 fp16 舍入误差，同一 batch 内为 0。研究者决定把容差放宽到 0.1，打分方法不变，偏差追加在规则文件末尾。遗忘人物上，NPO 和 GA-Diff ep10 第 32 层的求和 margin 与去前缀求和 margin 之差最大 0.11 和 0.26，超过了这个容差；但它没有改变任何一次十选一判定，也不进入去前缀和只看属性值的读数。</li>
+            <li><b>事后补充：</b>主汇总之后写了几个只读的描述性脚本，包括方案里要求同时报告但汇总漏算的量、另外 10 人上的单种子锚点和噪声统计。按长度分组是看到结果之后才做的，报告里逐处标明，不参与判定。</li>
+            <li><b>局限：</b>
+              <ul>
+                <li>25 个 LLaVA 人物和 15 个 Qwen 测试人物以前都分析过；第 20–28 层窗口是第四轮事后发现的。</li>
+                <li>读数用 logit lens。</li>
+                <li>去前缀读数仍计入共有前缀之后的冠词和句尾。</li>
+                <li>只看属性值的读数是“给定开头之后”的条件可读性，不等于模型会自己说出来。</li>
+                <li>遗忘模型、IDK 和 Full 都只有一个种子。</li>
+              </ul></li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -821,13 +922,13 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
   <div class="tablewrap"><table>
     <thead><tr><th>模型</th><th>模式</th><th>最关键的数字</th></tr></thead>
     <tbody>
-      <tr><td class="name">Oracle</td><td>没有目标知识的下限</td><td>所有问法、所有更新下 0.21–0.28；三个种子的十选一 0.24–0.27，同一更新下的 retain 代价最多相差约 3 个点</td></tr>
+      <tr><td class="name">Oracle</td><td>没有目标知识的下限</td><td>所有问法、所有更新下 0.21–0.28；三个种子的十选一 0.24–0.27，同一更新下的 retain 代价最多相差约 3 个点；Qwen 的两个种子十选一 0.270 和 0.281，同一开闸更新下的 retain 代价却相差 6–9 个点</td></tr>
       <tr><td class="name">Full</td><td>上限，未遗忘</td><td>0.98；写完 rationale 后降到 0.55</td></tr>
       <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，压在基本完好的知识上；闸门在第 1 层就被触发、由很多层写入；唯一通过 release gate 的遗忘模型</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次让三个模型 retain 各降 3 到 4 个点的无关更新后，拒答 13%、生成答对 0.61；hidden state 中间层带高出 Oracle +0.055*，更新前后不变；在另外 50 个人物上复现（+0.065*，更新后答对率高出 Oracle +0.50*）；在 Qwen2.5-VL-7B 上十选一 0.93、拒答 100%，同一更新后拒答 0.33</td></tr>
-      <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人；更新前 retain 已比 Full 低 13 个点；对任何遗忘人物的图像都压制答案的开头，压制在最后 3 层形成</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；主口径 10 个点预算下 +0.15*（Holm 校正后显著），但由更新带来的部分校正后不显著；答案第一个词元的对数概率 −35（Oracle −0.3）；第 20–28 层与身份绑定的优势 +0.118*，到输出层消失</td></tr>
-      <tr><td class="name">GA-Diff ep2</td><td>认得出人，属性接近 Oracle，个别属性低于 Oracle；更新前 retain 已比 Full 低 29 个点</td><td>姓名题 +0.37*；生日 −0.24*；只看自身 utility 时无关更新后 +0.19*，但那次更新让 Full 和 Oracle 掉 10 和 14 个点；主口径下只剩未校正的 +0.11*（以第二个 Oracle 为锚时 Holm 校正后显著）；第 20–28 层与身份绑定的优势 +0.090*，到输出层消失</td></tr>
-      <tr><td class="name">KL-Min</td><td>更新前最接近 Oracle；更新前 retain 已比 Full 低 26 个点</td><td>更新前 −0.04（不显著）；只看自身 utility 时 lr 1e-4 × 20 步后 +0.20*，但同一更新让 Full 和 Oracle 降 22 和 26 个点；主口径下 −0.02</td></tr>
-      <tr><td class="name">GA-Diff ep10</td><td>模型被破坏，不算遗忘成功</td><td>生成 100% 是乱码；准确率 0.07，低于 Oracle 也低于随机；预算外的更新修复了部分生成，准确率只回到 Oracle 水平</td></tr>
+      <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人；更新前 retain 已比 Full 低 13 个点；对任何遗忘人物的图像都压制答案的开头，压制在最后 3 层形成</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；主口径 10 个点预算下 +0.15*（Holm 校正后显著），但由更新带来的部分校正后不显著；答案第一个词元的对数概率 −35（Oracle −0.3）；第 20–28 层与身份绑定的优势 +0.118*，去掉答案模板后仍在（另外 10 人 +0.25*）；输出层压低的是共有的答案开头（−75 nats），给定开头后属性值读数与 Oracle 持平</td></tr>
+      <tr><td class="name">GA-Diff ep2</td><td>认得出人，属性接近 Oracle，个别属性低于 Oracle；更新前 retain 已比 Full 低 29 个点</td><td>姓名题 +0.37*；生日 −0.24*；只看自身 utility 时无关更新后 +0.19*，但那次更新让 Full 和 Oracle 掉 10 和 14 个点；主口径下只剩未校正的 +0.11*（以第二个 Oracle 为锚时 Holm 校正后显著）；第 20–28 层高出 Oracle，去掉答案模板后在另外 10 人上仍成立（+0.19*），但身份绑定的重复只在以种子 42 的 Oracle 为锚时成立</td></tr>
+      <tr><td class="name">KL-Min</td><td>更新前最接近 Oracle；更新前 retain 已比 Full 低 26 个点</td><td>更新前 −0.04（不显著）；只看自身 utility 时 lr 1e-4 × 20 步后 +0.20*，但同一更新让 Full 和 Oracle 降 22 和 26 个点；主口径下 −0.02；去掉答案模板后，第 20–28 层只在发现人物上高出 Oracle（+0.20*），集中在正确答案更长的题目</td></tr>
+      <tr><td class="name">GA-Diff ep10</td><td>模型被破坏，不算遗忘成功</td><td>生成 100% 是乱码；准确率 0.07，低于 Oracle 也低于随机；预算外的更新修复了部分生成，准确率只回到 Oracle 水平；中后层的身份绑定为负，两组人物都显著</td></tr>
     </tbody>
   </table></div>
   <p class="note">带正负号的数都是相对 Oracle 的差。</p>
@@ -857,6 +958,10 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
         <li>在 5 个点预算下，普通无关更新能打开 IDK 的闸门，按机制定向的 TRACEBREAK-MM 和后层 steering 不能。</li>
         <li>IDK 的更新前残留、10 个点预算下 IDK 的闸门坍塌、NPO 在 10 个点预算下的更新后残留，在三个 Oracle 种子和三种子平均锚点下都不变。</li>
         <li>在 Qwen2.5-VL-7B 上，IDK 同样保有几乎全部十选一知识（+0.64*），与身份绑定的残留在后层可以读出（事后分析）；同一个无关小更新也能打开闸门（只约束 IDK 自身 utility 时 +0.39*，主口径 10 个点预算下 +0.21*）。</li>
+        <li>去掉所有候选共有的答案模板后，NPO 在第 20–28 层仍高于三个 Oracle 种子的平均并与身份绑定，在发现人物和另外 10 人上都成立。要同时写明这个窗口是第四轮事后发现、之后固定的。</li>
+        <li>四种方法在输出层都把共有的答案开头压得很低；给定开头之后，NPO 在输出层读出属性值的能力与 Oracle 无法区分。</li>
+        <li>同一个无关小更新撤掉了 NPO 的开头压制，并让 NPO、GA-Diff ep2、KL-Min 在输出层的属性值可读性超过同更新的 Oracle；NPO 第 20–28 层的读数不变。</li>
+        <li>在 Qwen 上，要求 IDK、Full 和两个 Oracle 种子都不超预算时，只有 10 个点预算下的更新能打开 IDK 的闸门（GEN +0.17* 到 +0.21*，随锚点而变）。打开闸门的更新没有提高 IDK 后层的残留：变化在事先定的等价界之内，略有下降。</li>
       </ul>
     </div>
     <div>
@@ -873,7 +978,8 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
         <li>5 个点预算下 IDK 的闸门坍塌与 Oracle 的种子无关。换成第二、第三个 Oracle 或三种子平均后，同一更新都超出预算；更温和的 lr 5e-5 × 10 步在第三个种子下也超出。</li>
         <li>NPO 和 GA-Diff ep2 在更新前有残留。只在第二个 Oracle 种子下 Holm 校正后显著，第三个种子和平均锚点下都不显著。</li>
         <li>IDK 的中间层带残留在 Qwen 上复现了，或 Qwen 的 IDK 没有隐藏残留。预注册的中间层带读不出残留，但事后看残留在后层带，而且这种读法在 Qwen 的中间层连 Oracle 学过的人物都读不出。</li>
-        <li>Qwen 上 5 个点预算内（主口径）能打开 IDK 的闸门。所有能开闸的更新都让 Qwen 的 Oracle 降 8 个点以上。</li>
+        <li>Qwen 上 5 个点预算内（主口径）能打开 IDK 的闸门。两个 Oracle 种子都不超预算时找不到这样的更新；只以第二个种子或两种子的平均作约束时，lr 5e-5 × 10 步在 5 个点下可行，这只是敏感性结果。</li>
+        <li>Qwen 的 Oracle 每次开闸都要降 8 个点以上。这只对第一个种子成立，第二个种子在 lr 5e-5 × 10 步只降 1.7 个点。</li>
         <li>按机制定向的攻击比普通更新更强。在同样的数据和预算下，TRACEBREAK-MM 打不开闸门。</li>
         <li>"CoT 审计能发现强制选择发现不了的残留知识"。这里是反过来的，似然强制选择更灵敏。</li>
         <li>"良性更新普遍会恢复被遗忘的知识"。不存在对所有方法都有效的通用更新；KL-Min 和 GA-Diff ep2 的恢复依赖一个对健康模型有破坏性的更新。</li>
@@ -881,6 +987,11 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
         <li>NPO 的知识是被良性更新恢复的。主口径下由更新带来的部分在 Holm 校正后不显著。</li>
         <li>IDK 的知识是被更新恢复的。更新只打开了拒答闸门，残留在更新之前就在。</li>
         <li>某个方法"不可恢复"，或属性知识"已被删除"。只能说在受测的读数和更新范围内没有检测到。</li>
+        <li>GA-Diff ep2 与身份绑定的优势已在另外 10 人上重复。去掉答案模板后，只在以种子 42 的 Oracle 为锚时成立。</li>
+        <li>NPO 的知识在输出层被删除，或 NPO 在输出层低于 Oracle。整句平均读数下的输出层亏损随候选长度变号；只看属性值时与 Oracle 持平。</li>
+        <li>KL-Min 保留了与身份绑定的知识，或 KL-Min 没有残留。它只在发现人物上成立，并依赖候选长度；第七轮没有为这类结论预设等价界。</li>
+        <li>小更新恢复了 NPO 中间层的知识。NPO 第 20–28 层的读数不变，变化在最后几层和答案开头。</li>
+        <li>开闸更新后 Qwen 的 hidden-state 读数“不变”。应写变化在原效应的三分之一以内，略有下降；最终层十选一也略降，没有证明等价。</li>
         <li>这些结果代表所有多模态大模型或所有遗忘方法。</li>
       </ul>
     </div>
@@ -891,7 +1002,7 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
   <h2>已知限制</h2>
   <ul class="col">
     <li><b>主要结果来自一个模型；只有一个划分、一个种子、20 个测试人物。</b>第四轮的 IDK 结果在另外 50 个人物（forget_10）上复现过，第六轮在 Qwen2.5-VL-7B 上只做了 IDK 的最精简审计，其余结果都没有复现。按单个属性的结果每格只有 11–20 题。</li>
-    <li><b>Oracle 有三个种子，遗忘模型都只有一个。</b>离显著性或预算边界近的结论会随 Oracle 改变；三个种子只能给出粗略的标准差，种子的变异也不在按人物重采样的区间里。forget_10 的 Oracle 只有一个种子。之前试过的四个 Oracle 超参变体里，没有一个达到事先定的合格线。</li>
+    <li><b>LLaVA 的 Oracle 有三个种子，Qwen 的有两个，遗忘模型都只有一个。</b>离显著性或预算边界近的结论会随 Oracle 改变；三个种子只能给出粗略的标准差，种子的变异也不在按人物重采样的区间里。forget_10 的 Oracle 只有一个种子。之前试过的四个 Oracle 超参变体里，没有一个达到事先定的合格线。</li>
     <li><b>第一轮的更新是破坏性的</b>（retain 下降 7–67 个点）。第二轮里 lr 1e-4 第 1 轮的更新对多数模型也不满足 utility 约束。</li>
     <li><b>第二轮的 t_star 是在全部 20 人上事后扫描出来的</b>，选检查点的规则会改变 GA-Diff ep2 的结论。第三轮用验证人物和最终测试人物的划分来解决这一点。</li>
     <li><b>第三轮的最终测试人物并非完全没见过。</b>第二轮已经看过 20 人合并的恢复结果（4 个学习率 × 5 轮）。划分是事后按哈希规则做的，配置选择由代码在验证人物上完成。</li>
@@ -904,29 +1015,43 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
     <li><b>第三轮只用了一种更新数据</b>：77 个问答，100 步相当于过了 5 遍多。强学习率对健康模型的损伤可能部分来自对这一小撮数据的过拟合，换成更大更杂的无关数据，口径 B 下的结论可能不同。</li>
     <li><b>第四轮的因果分析主要针对 IDK</b>，测试集 15 人、138 题，这些人物的行为结果在第三轮已经解封。另外四种方法只做了逐层读数、权重交换和 Oracle→方法的 patching。“更新后”只指一种 5 步的无关更新。</li>
     <li><b>第四轮的逐层读数用的是 logit lens</b>，早层的读数接近噪声，没有用 tuned lens；在 Qwen 上，这种读法要到第 22 层左右才读得出已知人物的知识。patching 只替换提示部分。按位置的 patching 在 s0 上是事后追加的，在 forget_10 上做了事先登记的检验，只有 4 个层、两种位置划分。</li>
-    <li><b>逐层 margin 平均了整个答案句的对数似然</b>，所有候选共用的开头会混进来，NPO 的答案开头压制就曾被读成“放出的知识”。IDK 的结论在 forget_10 上用不含模板的读数复核过，另外四种方法的结论还没有。</li>
+    <li><b>逐层 margin 平均了整个答案句的对数似然</b>，所有候选共用的开头会混进来，NPO 的答案开头压制就曾被读成“放出的知识”。IDK 的结论在 forget_10 上用不含模板的读数复核过，另外四种方法在第七轮复核。去掉共有前缀的读数仍然计入前缀之后的冠词和句尾，所以输出层还会受候选长度影响；只看属性值的读数是“给定开头之后”的条件可读性，不等于模型会自己说出来。</li>
     <li><b>攻击对照只在 s0 上做</b>，选择只用了 5 个验证人物。TRACEBREAK-MM 只试了一种参数化（第 13–24 层、文本位置、秩 16）；普通更新在测试人物上的结果第三轮已经看过。</li>
-    <li><b>Qwen 审计每个模型只有一个种子</b>，超参数照搬 LLaVA，图像只有 144 个视觉 token（LLaVA 576 个），用 fp16 而不是原生 bf16。Qwen 的 Oracle 在更新下格外脆弱，是配方的性质还是种子的偶然，还不知道；这决定 Q3 应写成“不成立”还是“对锚点敏感”。</li>
+    <li><b>Qwen 审计每个模型只有一个种子</b>，超参数照搬 LLaVA，图像只有 144 个视觉 token（LLaVA 576 个），用 fp16 而不是原生 bf16。第七轮训练了 Qwen Oracle 的第二个种子：对更新敏感是两个种子共有的，但敏感的程度依赖种子，5 个点预算下能否开闸取决于用哪个 Oracle 作约束。IDK 和 Full 仍只有一个种子。</li>
+    <li><b>第七轮复核用的人物以前都分析过：</b>25 个 LLaVA 人物和 15 个 Qwen 测试人物都在之前几轮看过结果，所以它是事先定好规则的复核，不是独立的新样本。第 20–28 层窗口是第四轮事后发现的。只有两种改写的答案模板，最短的“The answer is X.”对所有模型的读数都偏弱。</li>
   </ul>
 </section>
 
 <section>
   <h2>等待决定的事</h2>
-  <p class="col">六轮都已完成，现在停下等指令，没有自动扩展到其他划分、方法或模型。</p>
+  <p class="col">七轮都已完成，现在停下等指令，没有自动扩展到其他划分、方法或模型。原来列在这里的“用不含模板的读数复核另外四种方法”和“训练 Qwen 的 Oracle 的第二个种子”已在第七轮完成。</p>
   <ol class="col">
     <li><b>UID 是否换一个随更新变化的基线。</b>现在的 UID 只比 PUR 少一个与更新无关的常数，按 UID 选和按 PUR 选必然是同一个检查点。一个可选的基线是同一更新下 Full 与 Oracle 的差距。</li>
     <li><b>是否为 forget_10 上 T2 不成立做一个事先登记的新对照。</b>在 retain 人物上做同样的“只换 Oracle 第 1 层的文本位置”，看正常回答是否也被打乱，用来区分“去掉了触发信号”和“IDK 对另一条训练线的状态反应不同”。</li>
-    <li><b>是否用不含模板的读数重新检查另外四种方法的 hidden-state 结论</b>，尤其是关于输出层的说法。先写好规则再跑。</li>
     <li><b>NPO 和 GA-Diff ep2 的后续对照：</b>只把 NPO 的视觉塔和投影层换成 Oracle 的，区分起作用的是图像编码还是第一个解码层；GA-Diff ep2 做同样的对照。</li>
     <li><b>是否实现窄版的 Counterfactual Trajectory Matching。</b>只在因果定位到的层和位置上比较遗忘模型和 Oracle，用知识读出和 Oracle→模型 patching 的结果而不是原始距离，先在 5 个方法上看它是否和 PUR、UID 一致。需要的 Oracle 种子已经有三个：同一更新下轨迹之差的 90 分位是 0.034。</li>
-    <li><b>是否训练 Qwen 的 Oracle 的第二个种子</b>（约 8 小时训练加 63 个更新的评测），判断它在更新下格外脆弱是配方的性质还是种子的偶然。</li>
+    <li><b>Qwen 的 5 个点结论以哪个 Oracle 为准。</b>两个种子给出不同的可行性：可以训练第三个种子，或在论文里改以两个种子的平均为锚（要先写定规则）。</li>
+    <li><b>论文的逐层读数是否改以只看属性值的读数为主</b>，整句平均只作对账。第七轮表明整句平均在输出层会被答案开头和候选长度带偏。</li>
     <li><b>是否在 forget_10 上也做三种攻击对照</b>，或者给 TRACEBREAK-MM 换层段、秩和学习率范围。</li>
     <li><b>是否测更温和的更新</b>：更大的无关数据、更多步、更小的学习率，看 KL-Min 和 GA-Diff ep2 在口径 B 下是否仍然不恢复。</li>
     <li><b>是否把其他方法扩展到 forget_10。</b>MLLMU-Bench 的 s1–s4 与 s0 是同样的 25 个人物和同样的模型，换划分不是独立的重复；真正的新人物在 forget_10，但目前只为它训练了 IDK 和 Oracle。</li>
     <li><b>是否做各遗忘模型的种子重训。</b>目前每个遗忘模型都只有一个种子。</li>
     <li><b>是否安排人工复核</b>第二轮的 162 条抽样。</li>
-    <li><b>Qwen 的其余后续：</b>在开闸的检查点补做逐层读数，在真正开闸的状态下检验 Q4；按 Qwen 能读出已知人物知识的深度重新定义层带，或改用 tuned lens（都要先写规则）；其他遗忘方法和 steering、patching 都还没有在 Qwen 上做。</li>
+    <li><b>Qwen 的其余后续：</b>按 Qwen 能读出已知人物知识的深度重新定义层带，或改用 tuned lens（都要先写规则）；其他遗忘方法和 steering、patching 都还没有在 Qwen 上做。开闸检查点上的逐层读数已在第七轮补做。</li>
   </ol>
+</section>
+
+<section>
+  <h2>第七轮的图</h2>
+  <p class="note">图内文字是英文。原图在 <code>~/MMU/runs/round7_audit/figures/</code>，另有 PDF；那里还有四种方法逐层读数的大图。</p>
+  <figure>
+    <div class="frame"><img src="assets/r7_npo_opening.png" alt="两个面板，横轴是层：NPO 和三个 Oracle 种子在更新前后，共有答案开头的对数似然，以及只看属性值的 margin" loading="lazy"></div>
+    <figcaption><b>NPO 在输出层压低的是答案开头，不是属性值。</b>15 个发现人物，原模板，正确图像，逐题平均；实线是更新前，虚线是同一小更新之后。a：所有候选共有的答案开头的对数似然。NPO（蓝）在第 29 层以前与三个 Oracle 种子（橙）基本重合，第 30–32 层骤降到约 −76；更新后回到 Oracle 附近。b：只看属性值的 token，正确答案减最强干扰项。NPO 从第 17 层左右高于 Oracle，到最后一层回到 Oracle 的范围；更新后输出层明显高于 Oracle，第 20–28 层几乎不变。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/r7_qwen_utility.png" alt="七个面板，每个学习率一个，横轴是成功的更新步数，纵轴是 retain 十选一的下降：Qwen 的两个 Oracle 种子、IDK 和 Full" loading="lazy"></div>
+    <figcaption><b>Qwen 的两个 Oracle 在同一更新下的 retain 代价。</b>第六轮的更新网格：77 个无关 GQA 问答，所有模型同样的 batch 顺序。橙色实线是种子 42，暗红虚线是种子 43，蓝色是 IDK，绿色是 Full，点线是 2、5、10 个点的预算。凡是有明显下降的地方，种子 43 都比种子 42 降得少；但在 lr 5e-5 和 1e-4 走到较多步数时，它仍降 10–30 个点，多于 IDK 和 Full。</figcaption>
+  </figure>
 </section>
 
 <section>
@@ -1112,12 +1237,13 @@ table.k4 td:nth-child(2) { min-width: 15rem; } table.k4 td:nth-child(3) { min-wi
       <tr><td class="name">第五轮：攻击</td><td><code>~/MMU/runs/attack_compare_s0/</code></td><td><code>attack_report.md</code>；配置选择在 <code>selection.json</code>，测试结果在 <code>attack_outcomes.csv</code></td></tr>
       <tr><td class="name">第六轮：Oracle 种子</td><td><code>~/MMU/runs/oracle_seed_s0/seed3/</code></td><td><code>oracle_seed3_report.md</code>；规则在 <code>decision_rules.md</code>，四个锚点的重算在 <code>reanchor.csv</code>，噪声底线在 <code>noise_floor.csv</code>，事后补充在 <code>posthoc/</code></td></tr>
       <tr><td class="name">第六轮：Qwen</td><td><code>~/MMU/runs/qwen_idk_audit_s0/</code></td><td><code>qwen_idk_audit_report.md</code>；规则在 <code>decision_rules.md</code>，预注册检验在 <code>tests.csv</code>，配置选择在 <code>selection.json</code>，事后分析在 <code>posthoc/</code></td></tr>
+      <tr><td class="name">第七轮</td><td><code>~/MMU/runs/round7_audit/</code></td><td><code>report.md</code>；规则在 <code>preregister.md</code>，LLaVA 的检验在 <code>de_template_tests.csv</code>、全部效应在 <code>de_template_summary.csv</code>，Qwen 的可行性和冻结配置在 <code>qwen_matched_utility.csv</code> 和 <code>frozen_checkpoint_results.csv</code>，逐层读数在 <code>qwen_hidden_state_tests.csv</code>，图在 <code>figures/</code></td></tr>
     </tbody>
   </table></div>
-  <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>，第四轮是 <code>gate_*.py</code>，第四轮补充是 <code>hsm_*.py</code>，第五轮是 <code>world_f10.py</code> 和 <code>gate10_*.py</code>（复现）、<code>oseed_*.py</code>（Oracle 种子）、<code>tb_*.py</code> 和 <code>atk_*.py</code>（攻击），第六轮是 <code>oseed3_*.py</code>（Oracle 种子）和 <code>qw_*.py</code>（Qwen）。</p>
+  <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>，第四轮是 <code>gate_*.py</code>，第四轮补充是 <code>hsm_*.py</code>，第五轮是 <code>world_f10.py</code> 和 <code>gate10_*.py</code>（复现）、<code>oseed_*.py</code>（Oracle 种子）、<code>tb_*.py</code> 和 <code>atk_*.py</code>（攻击），第六轮是 <code>oseed3_*.py</code>（Oracle 种子）和 <code>qw_*.py</code>（Qwen），第七轮是 <code>r7_*.py</code>。</p>
 </section>
 
-<footer>这个页面是静态快照，最后一次更新在第六轮完成之后（2026-11-22）。</footer>
+<footer>这个页面是静态快照，最后一次更新在第七轮完成之后（2026-11-22）。</footer>
 
 </div>
 <script>
@@ -1308,6 +1434,28 @@ function tracks(id, cfg) {
       r[4].forEach(function (v) { pts.push({ s: 2, v: v }); });
       return { label: r[0], sub: r[1], pts: pts,
         vals: "IDK " + v3(r[2]) + " · Full " + v3(r[3]) + "<br>Oracle " + r[4].map(v3).join(" / ") + "<br>更新后 IDK 拒答 " + v2(r[5]) }; }) });
+
+  /* round 7: de-templated readout (mean log-likelihood margin over the tokens after the common prefix), layers 20-28, mean of the three oracle seeds */
+  var dt = [["IDK", "正对照 · 高出 Oracle", [0.713, 1], [0.637, 1]], ["IDK", "正对照 · 身份绑定", [0.606, 1], [0.500, 1]],
+            ["NPO", "高出 Oracle", [0.417, 1], [0.251, 1]], ["NPO", "身份绑定", [0.311, 1], [0.190, 1]],
+            ["GA-Diff ep2", "高出 Oracle", [0.361, 1], [0.190, 1]], ["GA-Diff ep2", "身份绑定", [0.337, 1], [0.091, 0]],
+            ["KL-Min", "高出 Oracle", [0.198, 1], [-0.028, 0]], ["KL-Min", "身份绑定", [0.217, 1], [0.035, 0]],
+            ["GA-Diff ep10", "高出 Oracle", [0.327, 1], [0.225, 1]], ["GA-Diff ep10", "身份绑定", [-0.219, 1], [-0.199, 1]]];
+  tracks("c14", { min: -0.3, max: 0.8, ticks: [-0.2, 0, 0.2, 0.4, 0.6, 0.8], tickfmt: sgn, fmt: sval, refs: [0],
+    series: [{ name: "15 个发现人物", cls: "s1" }, { name: "另外 10 人", cls: "hollow" }],
+    rows: dt.map(function (r) { return { label: r[0], sub: r[1], link: [r[2][0], r[3][0]],
+      pts: [{ s: 1, v: r[3][0], sig: r[3][1] }, { s: 0, v: r[2][0], sig: r[2][1] }],
+      vals: "发现 " + sval(r[2][0]) + (r[2][1] ? "*" : "") + " · 另外 10 人 " + sval(r[3][0]) + (r[3][1] ? "*" : "") }; }) });
+
+  /* round 7: retain drop of IDK, Full and the two Qwen oracle seeds under the same update; IDK refusal on the 15 test persons */
+  var cost7 = [["lr 5e-5 × 10 步", "10 个点预算下选中的开闸更新", 0.024, 0.009, 0.081, 0.017, 0.601],
+               ["lr 1e-4 × 5 步", "LLaVA 第三轮的那个更新", 0.034, 0.027, 0.143, 0.055, 0.333],
+               ["lr 1e-4 × 10 步", "闸门几乎全开", 0.090, 0.056, 0.271, 0.198, 0.051]];
+  tracks("c15", { min: 0, max: 0.3, ticks: [0, 0.1, 0.2, 0.3], tickfmt: plain, fmt: v3, refs: [0.05, 0.10],
+    series: [{ name: "IDK", cls: "s1" }, { name: "Full", cls: "s3" }, { name: "Oracle 种子 42", cls: "hollow" }, { name: "Oracle 种子 43", cls: "s2" }],
+    rows: cost7.map(function (r) { return { label: r[0], sub: r[1], link: [r[5], r[4]],
+      pts: [{ s: 1, v: r[3] }, { s: 0, v: r[2] }, { s: 2, v: r[4] }, { s: 3, v: r[5] }],
+      vals: "IDK " + v3(r[2]) + " · Full " + v3(r[3]) + "<br>Oracle 种子 42 " + v3(r[4]) + " · 43 " + v3(r[5]) + "<br>更新后 IDK 拒答 " + v2(r[6]) }; }) });
 })();
 </script>
 </body>
