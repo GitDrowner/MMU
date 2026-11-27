@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MLLMU 遗忘审计汇总</title>
-<meta name="description" content="LLaVA-1.5-7B 多模态遗忘十一轮实验的阶段汇总：重学对照、推理路径审计、utility 约束下的恢复、拒答闸门与 hidden state 的因果审计、复现与攻击对照、三个 Oracle 种子与 Qwen2.5-VL 上的复现、其他方法的去模板化复核与第二个 Qwen Oracle 种子、评分伪影的受控实验与 fp32 评分核验、forget_10 上的 NPO 确认、同一更新的生成效用审计与论文主结果冻结、更新强度曲线上的生成效用与 IDK 开闸更新的生成审计、forget_10 上的第二个 Oracle 种子和第二个 NPO 训练种子。">
+<meta name="description" content="LLaVA-1.5-7B 多模态遗忘十二轮实验的阶段汇总：重学对照、推理路径审计、utility 约束下的恢复、拒答闸门与 hidden state 的因果审计、复现与攻击对照、三个 Oracle 种子与 Qwen2.5-VL 上的复现、其他方法的去模板化复核与第二个 Qwen Oracle 种子、评分伪影的受控实验与 fp32 评分核验、forget_10 上的 NPO 确认、同一更新的生成效用审计与论文主结果冻结、更新强度曲线上的生成效用与 IDK 开闸更新的生成审计、forget_10 上的第二个 Oracle 种子和第二个 NPO 训练种子、CLEAR 上的核心确认（适配未通过）与 forget_10 上冻结权重的问法改写审计。">
 <meta name="color-scheme" content="light dark">
 <style>
 html { -webkit-text-size-adjust: 100%; }
@@ -160,6 +160,8 @@ table.r8 td:nth-child(2) { min-width: 8rem; } table.r8 td:nth-child(3) { min-wid
 @media (min-width: 641px) { #c22 .trow, #c24 .trow { grid-template-columns: 9.5rem minmax(0, 1fr) 15.5rem; } #c23 .trow { grid-template-columns: 9.5rem minmax(0, 1fr) 19.5rem; } #c25 .trow { grid-template-columns: 9.5rem minmax(0, 1fr) 20rem; }
   #c26 .trow, #c27 .trow { grid-template-columns: 11rem minmax(0, 1fr) 15.5rem; } #c22 .vals, #c23 .vals, #c24 .vals, #c25 .vals, #c26 .vals, #c27 .vals { white-space: normal; } }
 table.r10 td:nth-child(2), table.r10 td:nth-child(3), table.r10 td:nth-child(5) { white-space: nowrap; } table.r10 td:nth-child(4) { min-width: 9rem; } table.r11 td.name { white-space: normal; min-width: 12rem; }
+@media (min-width: 641px) { #c28 .trow { grid-template-columns: 9.5rem minmax(0, 1fr) 15.5rem; } #c28 .vals { white-space: normal; } }
+table.r12 td.name { white-space: normal; min-width: 13rem; } table.r12 td:nth-child(2), table.r12 td:nth-child(3), table.r12 td:nth-child(4) { white-space: nowrap; }
 table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth-child(n+2) { min-width: 7.5rem; } table.r9b td:nth-child(2) { min-width: 9rem; } table.r9b td:nth-child(3) { min-width: 17rem; }
 </style>
 </head>
@@ -167,9 +169,9 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
 <div class="wrap">
 
 <header class="top">
-  <p class="eyebrow">阶段汇总 · 截至 2026-11-26 · 十一轮均已完成</p>
+  <p class="eyebrow">阶段汇总 · 截至 2026-11-27 · 十二轮均已完成，第十三轮进行中</p>
   <h1>多模态遗忘评测：做了什么，现在知道什么</h1>
-  <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物）。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。前四轮只用一个数据划分、一个随机种子。第四轮在 hidden state 上检查 IDK 的“遗忘”是不是只是一层拒答，之后补做了另外四种方法。第五轮在另外 50 个人物上复现 IDK 的结果，训练了第二个 Oracle 种子，并比较了三种攻击。第六轮训练了第三个 Oracle 种子，并在第二种架构 Qwen2.5-VL-7B 上复现 IDK 审计的最精简版本。第七轮用不含答案模板的读数复核另外四种方法的 hidden-state 结论，并为 Qwen 训练了第二个 Oracle 种子。第八轮用受控的离线干预检验整句平均读数的伪影，核验评分的数值精度并把评分改为 fp32，然后在另外 50 个人物上为 NPO 做确认。第九轮没有新的训练：审计同一个无关小更新对自由生成的代价，检验把生成效用放进约束之后释放是否还在预算内，并固定论文的主结果和表述。第十轮沿 10 个强度不同的无关更新画出“释放对代价”的曲线，并对 IDK 的开闸更新做生成效用审计。第十一轮为 forget_10 训练第二个 Oracle 种子和第二个 NPO 训练种子，复核前三轮在 forget_10 上的结论。</p>
+  <p class="lede">对象是 LLaVA-1.5-7B 在 MLLMU-Bench 上的五种遗忘方法（遗忘 5% 的人物）。要回答的问题是：被"遗忘"的人物知识是真的没了，还是换个条件就能拿出来。所有结论都是减去 Oracle 之后的结论，Oracle 是一个从未见过这些人的参照模型。前四轮只用一个数据划分、一个随机种子。第四轮在 hidden state 上检查 IDK 的“遗忘”是不是只是一层拒答，之后补做了另外四种方法。第五轮在另外 50 个人物上复现 IDK 的结果，训练了第二个 Oracle 种子，并比较了三种攻击。第六轮训练了第三个 Oracle 种子，并在第二种架构 Qwen2.5-VL-7B 上复现 IDK 审计的最精简版本。第七轮用不含答案模板的读数复核另外四种方法的 hidden-state 结论，并为 Qwen 训练了第二个 Oracle 种子。第八轮用受控的离线干预检验整句平均读数的伪影，核验评分的数值精度并把评分改为 fp32，然后在另外 50 个人物上为 NPO 做确认。第九轮没有新的训练：审计同一个无关小更新对自由生成的代价，检验把生成效用放进约束之后释放是否还在预算内，并固定论文的主结果和表述。第十轮沿 10 个强度不同的无关更新画出“释放对代价”的曲线，并对 IDK 的开闸更新做生成效用审计。第十一轮为 forget_10 训练第二个 Oracle 种子和第二个 NPO 训练种子，复核前三轮在 forget_10 上的结论。第十二轮尝试在第二个数据集 CLEAR 上做核心确认，但按事先规则没有通过适配检查，所以没有 CLEAR 上的遗忘结论；同时在 forget_10 上冻结权重、只换问法，测量不改模型能多取回多少。</p>
   <div class="rail">
     <div class="stop"><span class="n">第一轮</span><span class="t">四组重学对照</span><span class="pill done">已完成</span><span class="d">用无关数据微调，恢复得和用真实标签差不多。但这种微调代价很大。</span></div>
     <div class="stop"><span class="n">第二轮</span><span class="t">推理路径审计</span><span class="pill done">已完成</span><span class="d">让模型先写推理不会多暴露知识。换一种问法会。</span></div>
@@ -182,6 +184,7 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
     <div class="stop"><span class="n">第九轮</span><span class="t">生成效用审计、带生成约束的释放、论文结果冻结</span><span class="pill done">已完成</span><span class="d">同一个小更新后，NPO 在自由生成里说出正确属性的比例比同更新的 Oracle 高 33 个点；但这次更新让三个模型在 retain 人物上的自由生成各掉 7–9 个点，5 个点的生成预算不成立。旧的乱码规则漏判严重，“通过 release gate”要加限定。人工复核待做。</span></div>
     <div class="stop"><span class="n">第十轮</span><span class="t">更新强度曲线、IDK 的生成效用审计</span><span class="pill done">已完成</span><span class="d">很弱的更新就让 NPO 的披露率高出 Oracle，三个模型的 retain 生成都只掉 3.4 个点以内；但这些正确值大多夹在被判为无效的回答里，只算有效回答时没有超出。IDK 在 5 个点内仍在拒答，拒答在一段很窄的强度区间里崩塌。forget-5 上 IDK 的两个开闸更新都不满足 5 个点的生成预算。</span></div>
     <div class="stop"><span class="n">第十一轮</span><span class="t">forget_10 的第二个 Oracle 种子和第二个 NPO 训练种子</span><span class="pill done">已完成</span><span class="d">NPO 的中后层残留和身份绑定、更新后的释放，在两个 Oracle 种子和两个 NPO 训练种子下都成立。NPO 更新前的生成行为不复现：一个种子低于 Oracle、几乎全是乱码，另一个高于 Oracle、一半是正常回答。换 Oracle 种子不改变任何判定。</span></div>
+    <div class="stop"><span class="n">第十二轮</span><span class="t">CLEAR 核心确认、冻结权重的问法改写</span><span class="pill done">已完成</span><span class="d">CLEAR 没有通过事先规定的适配检查（真实名人识别降 11–13 个点；无效回答规则不适用于 CLEAR 的长描述），按规则停止，没有 CLEAR 上的遗忘结论，第十三轮按官方配方重做中。forget_10 上不改权重、只换三种问法：IDK 多取回 +0.20*，NPO 种子 42 多取回 +0.09*，种子 43 没有检出。</span></div>
   </div>
 </header>
 
@@ -191,7 +194,7 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
   <h3 class="tier">比较稳的结论</h3>
   <ul class="key">
     <li><span>1</span><span><b>遗忘方法改变的主要是"用什么方式能读出知识"，而不是把知识删掉。</b>除了被训练破坏的 GA-Diff ep10，其余四个遗忘模型都能在某种读法下显著高于 Oracle：IDK 在似然读数下是 0.88（Oracle 0.26）；NPO 和 GA-Diff ep2 加一句"直接回答"后分别高出 +0.21* 和 +0.09*；KL-Min 在姓名题上高出 +0.31*。<span class="tag ok">第二、三轮一致</span></span></li>
-    <li><span>2</span><span><b>IDK 的遗忘是一个绑定在训练问法上的拒答闸门，而且很容易打开。</b>原始问法下 100% 拒答，换一句提示只剩 3%。一次让 IDK、Full、Oracle 的 retain 各只降 3 到 4 个点的无关更新，就把拒答率降到 13%，生成答对率从 0 升到 0.61，同一更新下的 Oracle 只有 0.18。同一更新让第二、第三个 Oracle 种子的 retain 降 5.4 和 6.6 个点；在另外 50 个人物上，更新后答对率同样高出 Oracle +0.50*；在 Qwen2.5-VL-7B 上，同一更新把 IDK 的拒答降到 33%（第 23 条）。第十轮补充：放到生成预算下，forget-5 的两个开闸更新都不满足 5 个点；forget_10 上 5 个点的匹配预算内没有检测到释放（第 38、39 条）。<span class="tag ok">LLaVA 上五轮一致，Qwen 上重复</span><span class="tag mid">5 个点预算下主口径是否可行取决于锚点</span></span></li>
+    <li><span>2</span><span><b>IDK 的遗忘是一个绑定在训练问法上的拒答闸门，而且很容易打开。</b>原始问法下 100% 拒答，换一句提示只剩 3%。一次让 IDK、Full、Oracle 的 retain 各只降 3 到 4 个点的无关更新，就把拒答率降到 13%，生成答对率从 0 升到 0.61，同一更新下的 Oracle 只有 0.18。同一更新让第二、第三个 Oracle 种子的 retain 降 5.4 和 6.6 个点；在另外 50 个人物上，更新后答对率同样高出 Oracle +0.50*；在 Qwen2.5-VL-7B 上，同一更新把 IDK 的拒答降到 33%（第 23 条）。第十轮补充：放到生成预算下，forget-5 的两个开闸更新都不满足 5 个点；forget_10 上 5 个点的匹配预算内没有检测到释放（第 38、39 条）。第十二轮补充：不做任何更新、只把问题改写成三种固定问法，forget_10 上 IDK 说出正确值的比例就比 Oracle 多 +0.20*（第 45 条）。<span class="tag ok">LLaVA 上五轮一致，Qwen 上重复</span><span class="tag mid">5 个点预算下主口径是否可行取决于锚点</span></span></li>
     <li><span>3</span><span><b>GA-Diff ep10 不算遗忘成功，而是模型被破坏了。</b>十选一准确率 0.07，低于随机水平，也低于 Oracle，生成的全是乱码。无关更新在预算内毫无作用；预算外修复了部分生成能力，但准确率只回到 Oracle 的水平。<span class="tag ok">三轮一致</span></span></li>
     <li><span>4</span><span><b>Oracle 不会从同样的提示或更新里获得目标知识，所以"高出 Oracle"可以归为残留知识。</b>第二轮 7 种问法、20 个更新检查点下，Oracle 都在 0.21–0.28；第三轮全部 63 个更新后检查点上在 0.24–0.27（更新前 0.265）。<span class="tag ok">三轮一致</span></span></li>
     <li><span>5</span><span><b>让模型先写一段推理，不会多暴露知识。</b>写完三段 rationale 后没有任何模型的准确率上升（Full −0.24*，IDK −0.21*），rationale 里写的身份对属性答案影响很小。在这个模型上，用 CoT 审计遗忘不如似然读数灵敏。<span class="tag ok">第二轮</span></span></li>
@@ -252,7 +255,7 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
   </ul>
   <h3 class="tier">第九轮：同一更新的生成效用、带生成约束的释放、论文结果冻结（规则在运行前写定；没有新训练）</h3>
   <ul class="key">
-    <li><span>33</span><span><b>同一个无关小更新之后，NPO 在自由生成里说出遗忘人物正确属性的比例明显高于同更新的 Oracle。</b>用这一轮事先冻结的回答标签，在 forget_10 的 40 个测试人物上：更新后 NPO 披露正确值的比例是 0.47，Oracle 是 0.14，相差 +0.33*（35 人为正，Holm 校正后显著）；要求“披露且不含矛盾值”时数值相同。更新前相差 −0.09*，那时 NPO 的回答几乎全是乱码；更新使这个差增加 +0.42*。标签是自动规则给出的，人工复核还没做；“更新前低于 Oracle”对乱码回答的判读敏感，只是暂定（第 36 条）。第十一轮补充：“更新前低于 Oracle”只在 NPO 的种子 42 上成立，第二个训练种子更新前高出 +0.07*；更新后的超出在两个训练种子上都成立（+0.34*、+0.21*，以两个 Oracle 种子的平均为锚；第 42 条）。<span class="tag ok">事先登记，测试人物只聚合一次</span><span class="tag mid">这些人物在第五、八轮用过；单个 Oracle 种子</span><span class="tag mid">自动标签，人工复核待做</span></span></li>
+    <li><span>33</span><span><b>同一个无关小更新之后，NPO 在自由生成里说出遗忘人物正确属性的比例明显高于同更新的 Oracle。</b>用这一轮事先冻结的回答标签，在 forget_10 的 40 个测试人物上：更新后 NPO 披露正确值的比例是 0.47，Oracle 是 0.14，相差 +0.33*（35 人为正，Holm 校正后显著）；要求“披露且不含矛盾值”时数值相同。更新前相差 −0.09*，那时 NPO 的回答几乎全是乱码；更新使这个差增加 +0.42*。标签是自动规则给出的，人工复核还没做；“更新前低于 Oracle”对乱码回答的判读敏感，只是暂定（第 36 条）。第十一轮补充：“更新前低于 Oracle”只在 NPO 的种子 42 上成立，第二个训练种子更新前高出 +0.07*；更新后的超出在两个训练种子上都成立（+0.34*、+0.21*，以两个 Oracle 种子的平均为锚；第 42 条）。第十二轮补充：“更新前低于 Oracle”只在原问题下成立；把问题改写后，种子 42 不做更新就已经多出 +0.09*（第 46 条）。<span class="tag ok">事先登记，测试人物只聚合一次</span><span class="tag mid">这些人物在第五、八轮用过；单个 Oracle 种子</span><span class="tag mid">自动标签，人工复核待做</span></span></li>
     <li><span>34</span><span><b>这次更新不是无损的：十选一识别只降 3–4 个点，自由生成却降 7–9 个点，三个模型都如此。</b>这一轮把 retain 人物的自由生成从 60 题补齐到 236 题（25 人）。同一更新后，“披露且不含矛盾值”的比例：NPO 0.911 → 0.831（降 8.0 个点，区间 3.5–12.6），Full 0.949 → 0.878（7.1，3.7–10.7），Oracle 0.902 → 0.817（8.5，5.3–11.5）；十选一同时只降 2.8、3.0、4.1 个点，GQA 不降。丢掉的回答变成了流畅的错误回答（日期差一年、薪水换一个数），乱码率和拒答率都是 0，原来的输出有效性指标看不到。三个模型的降幅之间没有可检出的差别。把生成约束加进去：2 和 5 个点预算都不可行，所有标签判法一致；10 个点只在点估计上可行，三个降幅的 95% 上界都超过 10 个点。按事先写好的措辞，只能说“识别效用保持时目标信息被释放，但 retain 生成有不可忽略的损失”。第十轮补充：这只对这一个更新成立。更弱的更新满足 5 个点的生成预算，在那里 NPO 的披露率仍高于 Oracle，但多出来的部分主要夹在被判为无效的回答里（第 37、40 条）。<span class="tag ok">事先登记</span><span class="tag mid">只测了一个更新；第十轮补了曲线</span></span></li>
     <li><span>35</span><span><b>旧的退化规则漏掉了大部分乱码，“通过 release gate”要加限定。</b>按这一轮的无效输出标签（空白、其他文字、代码片段、大量词表外的词），NPO 更新前对 forget_10 测试人物的回答 99.2% 是无效输出；第三轮沿用至今的退化规则只标出 17.5%。原 release gate 的判定不追溯改写，但它“未 collapsed”的结论依赖这条旧规则：gate 自己规定，遗忘题的回答一半以上是乱码就判 collapsed。另外，NPO 在更新之前的 retain 自由生成比 Full 低 3.8 个点（区间 1.6–6.1）；从未见过遗忘人物的 Oracle 也比 Full 低 4.7 个点，两者持平。gate 只看十选一（差 1.4 个点），看不到这个差距。第十一轮补充：99% 是 NPO 种子 42 的特点，第二个训练种子是 48%，它同样通过 release gate（第 42 条）。<span class="tag ok">标签事先冻结</span><span class="tag mid">辅助阅读抽到的 19 条全部判为无效，但那不是人工复核</span></span></li>
     <li><span>36</span><span><b>论文的主结果、表述和统计口径已经固定；人工复核还没做。</b>主结果表 97 行，每个数字由脚本从源文件按行读出；claim ledger 对六条结论写明了准确表述、适用范围、替代解释、不能说什么、能否进摘要。两处口径没有统一，已逐行标出：第三到第七轮按题加权，第八、九轮先按人物平均；部分读数仍是 fp16 评分。人工复核包有 313 条盲化回答，两位标注者的标注尚未进行，<a href="annotate/">标注工具</a>在本仓库里。一个只拿到盲化表的语言模型实例读过同一批回答，这不是人工复核：它不改变更新后的超出和“5 个点不可行”；但 NPO 更新前有 438 条“无效且未披露”的回答，只抽了 8 条，其中 1 条含被截断的正确数值，按抽样权重推回去，“更新前低于 Oracle”的符号会反过来。这些回答约 38% 含中日韩文字，自动规则读不了。<span class="tag mid">人工复核待做</span><span class="tag mid">辅助阅读不是人工复核</span></span></li>
@@ -281,6 +284,13 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
         <li>每一条可行性判定。</li>
       </ul>forget-5 上第三个种子曾改变卡在边界上的结论，所以不能推广成“forget_10 对 Oracle 种子不敏感”。<span class="tag ok">事先登记</span><span class="tag mid">两个 Oracle 种子</span></div></li>
   </ul>
+  <h3 class="tier">第十二轮：CLEAR 上的核心确认（适配未通过）、forget_10 上冻结权重的问法改写审计（规则在读取输出前写定）</h3>
+  <ul class="key">
+    <li><span>44</span><span><b>CLEAR 没有通过事先规定的适配检查，所以第十二轮没有 CLEAR 上的遗忘结论。</b>用我们的配方在 CLEAR 上微调后，Full 说出 4 个验证人物的名字（1.00），从未见过他们的 Oracle 一个也说不出（0.00），换成别人的照片后 Full 不再说本人的名字（0.00）。没有通过的两项：回答被判“无效”的比例 81–85%，原因是第九轮的无效规则用 MLLMU 的词表判断生词，把 CLEAR 通顺的长描述判成了无效，去掉这一条后只有 0–3%；真实名人识别从 0.95 降到 0.85 和 0.83，超过 5 个点的界限，Full 和 Oracle 一样，是两者共同的微调代价。按规则停止，16 个测试人物没有使用；第十三轮按官方配方重做，正在进行。<span class="tag ok">事先登记</span><span class="tag mid">只有适配结果</span></span></li>
+    <li><span>45</span><span><b>不改任何权重、只把问题换成三种固定改写，IDK 说出正确值的比例就比 Oracle 多 +0.20*。</b>forget_10 的 40 个测试人物里 38 人为正；指标是三种改写的平均增益减去两个 Oracle 的平均增益（OCCG），按事先定的 6 项做 Holm 校正后 p = 0.001。换成另一人的照片后只剩 +0.03，取回的是与身份绑定的知识。增益主要来自 “Tell me …” 这种祈使问法：拒答从 100% 降到 28%，说出的正确值几乎都是正常句子。<span class="tag ok">事先登记，测试人物只聚合一次</span><span class="tag mid">自动标签，人工复核待做；人物以前分析过</span></span></li>
+    <li><span>46</span><span><b>NPO 对问法改写是否敏感，取决于训练种子。</b>种子 42 多取回 +0.09*（32/40 人为正），主要在 “Tell me …” 下：它对原问题的回答 99% 是乱码，换成这种问法后乱码降到 45%，说出的正确值约一半是正常句子。种子 43 没有检出（+0.00，区间 −0.04 到 +0.04）。这与第十一轮“NPO 更新前的输出行为取决于训练种子”一致；不能写成“NPO 这种方法对问法敏感”。<span class="tag ok">事先登记</span><span class="tag mid">两个训练种子不一致</span></span></li>
+    <li><span>47</span><span><b>这个增益是“可以取回”的下界，不是“保留了多少知识”的估计。</b>同样的改写让知道答案的 Full 少答对 24 个点（它是按原问题训练的），Oracle 的增益约为 0；所以 OCCG 只扣掉了猜测水平，没有扣掉措辞与训练不一致的损失。而且只测了三种固定改写，没有搜索问法。换任一个 Oracle 种子作锚、改用严格标签，判定都不变。<span class="tag ok">事先登记</span></span></li>
+  </ul>
   <h3 class="tier">对论文的含义（我的建议，待你确认）</h3>
   <ul class="col">
     <li><b>以 Oracle 为锚的评测是方法上的核心：</b>同一读法、同一更新也施加在 Oracle 上，才能把残留知识和读法或更新本身的效应分开。</li>
@@ -289,7 +299,8 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
     <li><b>更新后的生成释放要和它的代价写在同一句里。</b>可以写“识别效用保持时目标信息被释放，但 retain 生成有不可忽略的损失”；不能写“保持效用”或“在效用预算下”。论文的数字和措辞以第九轮冻结的主结果表和 claim ledger 为准。第十轮补充：代价随更新强度变化。更弱的更新可以满足 5 个点的生成预算，但那时 NPO 多出来的正确值主要夹在无效回答里；引用“5 个点内的释放”时，必须同时写明更新强度和这一点。</li>
     <li><b>输出有效性要用能识别乱码的标签。</b>第三轮沿用至今的退化规则只认空白、字符噪声和大量重复，漏掉了混合其他文字和代码片段的输出。引用“通过 release gate”时，要同时给出模型对遗忘人物的无效输出比例。</li>
     <li><b>遗忘模型的训练种子要和 Oracle 的种子一样当作变异来源。</b>第十一轮里，同一配方只换种子训练的两个 NPO，更新前的输出行为差别很大（乱码 99% 对 48%，十选一 0.40 对 0.61），中后层读数却几乎相同；更新后的释放方向一致，大小相差约 13 个点。forget_10 上 NPO 的结论现在可以写“在两个 Oracle 种子和两个 NPO 训练种子下成立”，不能写种子区间；关于输出行为的说法要写明是哪个种子。</li>
-    <li><b>拒答式遗忘（IDK）只在完好的知识上加了一层拒答：</b>知识在 hidden state 里基本完整，闸门在一个对三个模型都很小的良性更新下就会打开。这个闸门在最早几层就被触发、由很多层写入，两组人物上都是如此。论文里应写成 early-triggered, distributed refusal gate，不要写成后层闸门，也不要写触发信号只在图像 token 里。适合作为反例报告。在 Qwen2.5-VL-7B 上，知识同样压在闸门之后，同一个更新也能打开它，但这个更新让 Qwen 的第一个 Oracle 种子降 14 个点，第二个降 5.5 个点。</li>
+    <li><b>不改权重的问法改写可以作为“能否取回”的检验。</b>第十二轮里，冻结权重、只换三种固定问法，就从 IDK 和一个 NPO 种子取回了一部分被抑制的、与身份绑定的知识。这和 availability / accessibility 的区分在操作上对应，但只是类比，不是说模型和人的记忆机制相同。它给出的是下界：Oracle 校准只扣掉了猜测水平，没有扣掉措辞不一致的损失（Full 掉 24 个点）。建议的论文改动在服务器上的 <code>paper_claims_delta.md</code>：新增 C7（冻结权重下的问法敏感性，只在 forget_10 上）；C3 不再写“完整”；C5 的“更新前低于 Oracle”限定在原问题下；CLEAR 只写进局限。都还没有采纳。</li>
+    <li><b>拒答式遗忘（IDK）只在完好的知识上加了一层拒答：</b>知识在 hidden state 里基本完整，闸门在一个对三个模型都很小的良性更新下就会打开。这个闸门在最早几层就被触发、由很多层写入，两组人物上都是如此。论文里应写成 early-triggered, distributed refusal gate，不要写成后层闸门，也不要写触发信号只在图像 token 里。适合作为反例报告。在 Qwen2.5-VL-7B 上，知识同样压在闸门之后，同一个更新也能打开它，但这个更新让 Qwen 的第一个 Oracle 种子降 14 个点，第二个降 5.5 个点。第十二轮补充：按第十二轮事先定下的措辞，不写“知识完整保留”；可以写“知识保留在拒答之后，其中一部分不改权重、只换问法就能取回”（第 45 条）。</li>
     <li><b>hidden-state 证据以因果干预为准：</b>余弦、CKA 这类原始距离分不开知识和其他训练差异；能区分“知识还在”的，是与身份绑定的中层读数，以及“换入 Oracle 的状态后还能不能答对”。逐层 margin 还要用不含模板的读数或按总和打分的十选一复核：所有候选共用的答案开头会混进整句平均的 margin，NPO 的答案开头压制差点被读成“放出的知识”。第七轮的复核表明，NPO 第 20–28 层的残留不受影响，但输出层的结论要改用只看属性值的读数。第八轮用离线干预直接证明，这种伪影可以在候选证据完全不变时单独产生：主读数应是只看属性值的读数，输出层同时报告按总和打分的十选一，整句平均只用来展示伪影。Counterfactual Trajectory Matching 如果要做，建议只做一个窄版本，见“等待决定的事”。</li>
     <li><b>评分用 fp32 权重和前向，一道题的全部候选同批打分。</b>fp16 的分块打分没有通过逐 token 的一致性核验，会让约 0.3–0.4% 的十选一判定改变。第七轮原模板下的结论在 fp32 下不变，但论文里对评分的描述要改；第七轮另外两种模板和更早几轮的读数还没有用 fp32 重新打分。</li>
     <li><b>审计时把普通无关小更新作为标准攻击。</b>按机制定向的攻击（只在第 13–24 层文本位置训练的 LoRA、后层 steering）在同一预算下都不如它。</li>
@@ -345,7 +356,7 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
 </section>
 
 <section>
-  <h2>十一轮实验</h2>
+  <h2>十二轮实验</h2>
   <div class="rounds">
 
     <div class="round">
@@ -1424,6 +1435,78 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
       </div>
     </div>
 
+    <div class="round">
+      <div class="n">12</div>
+      <div class="body">
+        <div class="hd"><h3>CLEAR 上的核心确认、forget_10 上冻结权重的问法改写审计</h3><span class="pill done">已完成 · 11 月 26 日</span></div>
+        <div class="col stack">
+          <p>两个任务：</p>
+          <ul>
+            <li><b>任务 A（CLEAR）：</b>在第二个数据集 CLEAR（虚构人物的人脸、名字和描述）上，重做 NPO 的中后层残留与身份绑定、两个固定小更新后的释放，以及问法改写。</li>
+            <li><b>任务 B（forget_10）：</b>不改任何权重，只把问题换成三种固定改写，看能多取回多少被遗忘的属性值，用两个 Oracle 的同样增益作校准。</li>
+          </ul>
+          <p>做法：</p>
+          <ul>
+            <li><b>规则：</b>预登记、指标定义、分析方案和三个 manifest 在读取任何本轮输出之前冻结（2026-11-26 10:40 UTC）。</li>
+            <li><b>CLEAR 的顺序：</b>先在 4 个验证人物上做适配检查：Full 要记住，Oracle 要不知道，名字要和照片绑定，retain 和一般能力不能坏。通过后才训练遗忘模型；16 个测试人物留到最后只聚合一次。</li>
+            <li><b>问法改写：</b>三种改写只依据问题措辞写成，不含答案、取值或人名，每种属性一组；另用“换成另一人的照片”“不给照片”作对照。生成前后逐文件比对 checkpoint 的哈希，完全相同。主检验是三种改写的平均增益减去两个 Oracle 的平均增益（OCCG），按事先定的 6 项做 Holm 校正。</li>
+          </ul>
+        </div>
+
+        <h4 class="sub">A. CLEAR：适配检查没有通过</h4>
+        <div class="tablewrap"><table class="r12">
+          <thead><tr><th>判据（4 个验证人物；retain 25 人）</th><th class="num">Full</th><th class="num">Oracle 种子 42</th><th class="num">界限</th><th>结果</th></tr></thead>
+          <tbody>
+            <tr><td class="name">A1 说出验证人物的名字；十选一</td><td class="num">1.00；0.91</td><td class="num">–</td><td class="num">≥ 0.50；≥ 0.80</td><td>通过</td></tr>
+            <tr><td class="name">A2 Full − Oracle</td><td class="num">+1.00</td><td class="num">–</td><td class="num">≥ 0.30</td><td>通过</td></tr>
+            <tr><td class="name">A3 Oracle 说出名字</td><td class="num">–</td><td class="num">0.00</td><td class="num">≤ 0.10</td><td>通过</td></tr>
+            <tr><td class="name">A4 retain 说出名字；无效回答（遗忘 / retain）</td><td class="num">0.99；0.81 / 0.85</td><td class="num">0.99；0.81 / 0.83</td><td class="num">≥ 0.50；≤ 0.10</td><td><b>未通过</b>（测量问题）</td></tr>
+            <tr><td class="name">A5 真实名人识别（base 0.954）</td><td class="num">0.848</td><td class="num">0.828</td><td class="num">≥ 0.904</td><td><b>未通过</b></td></tr>
+            <tr><td class="name">A5 real_world（base 0.473）</td><td class="num">0.443</td><td class="num">0.440</td><td class="num">≥ 0.423</td><td>通过</td></tr>
+            <tr><td class="name">A6 换成别人的照片后说出本人名字</td><td class="num">0.00</td><td class="num">–</td><td class="num">≤ 0.10</td><td>通过</td></tr>
+          </tbody>
+        </table></div>
+        <ul class="col">
+          <li><b>A4 是测量问题，不是生成问题。</b>在 CLEAR 上训练出的模型回答的是一段描述（“Behrouz Rohani, in a younger appearance from the 1970s, is pictured with …”），通顺，但第九轮的无效规则用 MLLMU 问答的词表判断生词，把这种长描述的 81–85% 判成了无效。去掉这一条原因后，无效比例只有 0–3%。规则按冻结版本执行，判为未通过。</li>
+          <li><b>A5 是真实的下降。</b>Full 和 Oracle 对所有真实名人名字的对数似然都下降约 10 nats；正确名字与最强干扰项的平均差没有缩小，但排序变得不稳定（Full 丢 19 题、得 3 题）。这是两个模型共同的微调代价，与遗忘人物无关。可能的原因（没有检验）：我们的配方也在视觉塔上训练 LoRA、训练 10 个 epoch，官方 CLEAR 的配置冻结视觉部分、只训 3 个 epoch。</li>
+          <li><b>按规则停止。</b>事先规定的补救（多训 5 个 epoch）只针对 A1、A2，它们通过了；A4、A5 不通过就停止。没有改界限、改规则或读测试人物，其余四个 CLEAR 模型没有训练。</li>
+          <li><b>第十三轮（进行中）。</b>按你的指示，用官方 CLEAR 的微调配方重做 Full 和 Oracle：冻结视觉塔，LoRA r8 / α32，lr 1e-5，3 个 epoch，一个 epoch 预热，weight decay 0.01。无效规则换成加入 CLEAR 文本词汇的版本，在读取输出前冻结。遗忘方法仍用 MLLMU 上的配方：官方的遗忘是 7B 全参数 bf16 训练，单张 32 GB V100 放不下，官方 IDK 用的是原始答案。</li>
+        </ul>
+
+        <h4 class="sub">B. forget_10：不改权重，只换问法</h4>
+        <div class="panel">
+          <h3>换问法多取回多少，减去 Oracle 的同样增益</h3>
+          <div class="legend"><span><i class="mk s1"></i>本人照片</span><span><i class="mk hollow"></i>换成另一名遗忘人物的照片</span></div>
+          <div class="tracks" id="c28"></div>
+          <p class="cap">说出正确值（第九轮的自动标签），40 个测试人物、377 道题，先按人物平均。点是 OCCG：三种改写的平均减去原问题，再减去两个 Oracle 的同样差值；横线是本人照片下的 95% 区间。* 表示按事先定的 6 项做 Holm 校正后显著；Full 只作描述。</p>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v">100% → 28%</div><div class="k">IDK 的拒答：原问题 → “Tell me …”。说出正确值 0.3% → 42%，几乎都是正常句子</div></div>
+          <div class="stat"><div class="v">99% → 45%</div><div class="k">NPO 种子 42 的乱码：原问题 → “Tell me …”。说出正确值 6% → 29%</div></div>
+          <div class="stat"><div class="v">−24</div><div class="k">Full 在三种改写下少答对的点数（95% → 71%）：改写本身更难</div></div>
+          <div class="stat"><div class="v">10–13%</div><div class="k">不给照片时六个模型说出正确值的比例，都接近 Oracle 的猜测水平</div></div>
+        </div>
+        <ul class="col">
+          <li><b>IDK 和 NPO 种子 42 为正，NPO 种子 43 没有检出。</b>+0.20*（38/40 人为正）、+0.09*（32/40）、+0.00（区间 −0.04 到 +0.04）。换任一个 Oracle 种子作锚、改用严格标签，判定都相同。</li>
+          <li><b>与身份绑定。</b>换成另一人的照片后，IDK 和 NPO 种子 42 只剩 +0.03；本人照片下的增益比换照片时多 16 和 6 个点。</li>
+          <li><b>增益集中在一种问法。</b>“Tell me …” 这种祈使改写贡献了大部分：IDK +0.41，NPO 种子 42 +0.22。另外两种改写，IDK 也为正（+0.08、+0.10），NPO 种子 42 只有 +0.01、+0.04。按事先规定，结论只用三种改写的平均，单一改写不挑出来当结论。</li>
+          <li><b>不是乱码里的偶然命中。</b>IDK 在改写下说出的正确值几乎都是正常句子（158 条里 1 条有格式异常）。NPO 种子 42 在 “Tell me …” 下说出的 108 条里，约一半没有格式异常；它在原问题下说出的 23 条里，22 条夹在乱码中。</li>
+          <li><b>只是下界。</b>只测了三种固定改写，没有搜索问法；OCCG 只扣掉了 Oracle 的猜测水平，没有扣掉措辞与训练不一致带来的损失（Full 掉 24 个点），所以不能读成“保留了多少知识”。</li>
+        </ul>
+        <details>
+          <summary>一致性检查和披露</summary>
+          <ul class="col">
+            <li><b>权重没有变。</b>六个 forget_10 checkpoint 的每个 .safetensors 和 .json 文件，生成前后的 sha256 相同；生成代码前后的 md5 相同。没有 adapter、梯度、探针或提示优化。</li>
+            <li><b>格式检查。</b>先生成 10 个验证人物，检查条目、措辞、图像字段和泄漏（改写里不含任何正确值），通过后才看测试结果。Full 的测试组生成和验证组并行启动，记为偏差，不影响输出。</li>
+            <li><b>检验族。</b>B 族事先定为 6 项（两个数据集 × NPO 两个种子和 IDK）；CLEAR 的 3 项没有进行，在 Holm 中按未拒绝计入，这是保守的做法，只对已做的 3 项校正时判定相同。A 族（CLEAR 读数）和 C 族（CLEAR 更新）没有检验。</li>
+            <li><b>fp32 评分器的代码测试。</b>官方分数部分第一次显存不足，改为不保留 KV 缓存、只在答案位置算输出层后通过；修正前没有给任何真实模型打分。</li>
+            <li><b>复核包。</b>364 条盲化回答（从 10,006 条里分 104 层抽样），等待人工复核，没有放进标注工具。</li>
+            <li><b>局限。</b>40 个测试人物以前分析过，不是盲测；标签是自动规则；IDK 只有一个种子；只有三种改写。</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -1433,9 +1516,9 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
     <thead><tr><th>模型</th><th>模式</th><th>最关键的数字</th></tr></thead>
     <tbody>
       <tr><td class="name">Oracle</td><td>没有目标知识的下限</td><td>所有问法、所有更新下 0.21–0.28；三个种子的十选一 0.24–0.27，同一更新下的 retain 代价最多相差约 3 个点；Qwen 的两个种子十选一 0.270 和 0.281，同一开闸更新下的 retain 代价却相差 6–9 个点；forget_10 上，它对 retain 人物的自由生成比 Full 低 4.7 个点；forget_10 的第二个 Oracle 种子与第一个在 11 个更新状态上最多差 4.6 个点，没有改变任何判定</td></tr>
-      <tr><td class="name">Full</td><td>上限，未遗忘</td><td>0.98；写完 rationale 后降到 0.55；forget_10 上，一个 5 步的无关小更新让它对 retain 人物的自由生成降 7.1 个点、十选一降 3.0 个点；更弱的更新下它的降幅往往比遗忘模型还大（lr 5e-5 × 5 步：3.4 个点，NPO −0.4）</td></tr>
-      <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，压在基本完好的知识上；闸门在第 1 层就被触发、由很多层写入；唯一通过 release gate 的遗忘模型</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次让三个模型 retain 各降 3 到 4 个点的无关更新后，拒答 13%、生成答对 0.61；hidden state 中间层带高出 Oracle +0.055*，更新前后不变；在另外 50 个人物上复现（+0.065*，更新后答对率高出 Oracle +0.50*）；在 Qwen2.5-VL-7B 上十选一 0.93、拒答 100%，同一更新后拒答 0.33；forget_10 上，5 个点匹配生成预算的选点仍拒答 85%（超出 −0.03），强度 4.77 时拒答 14%、披露率高出 Oracle +0.48*；forget-5 的两个开闸更新让它自己的 retain 生成降 11.6 和 9.4 个点</td></tr>
-      <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人；forget-5 上更新前 retain 已比 Full 低 13 个点（forget_10 上只低 1.4 个点，通过 release gate）；对任何遗忘人物的图像都压制答案的开头，压制在最后 3 层形成</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；主口径 10 个点预算下 +0.15*（Holm 校正后显著），但由更新带来的部分校正后不显著；答案第一个词元的对数概率 −35（Oracle −0.3）；第 20–28 层与身份绑定的优势 +0.118*，去掉答案模板后仍在（另外 10 人 +0.25*）；输出层压低的是共有的答案开头（−75 nats），给定开头后属性值读数与 Oracle 持平；在另外 50 个人物（forget_10）上，第 20–28 层高出单个 Oracle +0.61*、身份绑定 +0.49*，开头被压低 47 nats，输出层属性值读数高于 Oracle（+0.80*），一个无关小更新后十选一 0.39 → 0.72、生成答对 0.07 → 0.46（Oracle 0.28 和 0.14）；第九轮：更新前对遗忘人物的回答 99% 是无效输出（旧退化规则只标出 18%）；更新后披露正确值的比例高出同更新的 Oracle +0.33*，但同一更新让它的 retain 自由生成降 8.0 个点；第十轮：5 个点匹配预算选出的弱更新上高出 +0.18*，三个模型降幅不超过 3.4 个点，但正确值 70% 夹在无效回答里，只算有效回答时 −0.04；第十一轮：第二个训练种子的中后层读数相同（差 −0.008），更新前却高出 Oracle +0.07*、乱码只有 48%，更新后 +0.21*</td></tr>
+      <tr><td class="name">Full</td><td>上限，未遗忘</td><td>0.98；写完 rationale 后降到 0.55；forget_10 上，一个 5 步的无关小更新让它对 retain 人物的自由生成降 7.1 个点、十选一降 3.0 个点；更弱的更新下它的降幅往往比遗忘模型还大（lr 5e-5 × 5 步：3.4 个点，NPO −0.4）；把问题换成三种改写后，说出正确值的比例降 24 个点（它按原问题训练）</td></tr>
+      <tr><td class="name">IDK</td><td>绑定在训练问法上的拒答闸门，压在基本完好的知识上；闸门在第 1 层就被触发、由很多层写入；唯一通过 release gate 的遗忘模型</td><td>似然读数 0.88；拒答 100%，换一句提示后 3%；一次让三个模型 retain 各降 3 到 4 个点的无关更新后，拒答 13%、生成答对 0.61；hidden state 中间层带高出 Oracle +0.055*，更新前后不变；在另外 50 个人物上复现（+0.065*，更新后答对率高出 Oracle +0.50*）；在 Qwen2.5-VL-7B 上十选一 0.93、拒答 100%，同一更新后拒答 0.33；forget_10 上，5 个点匹配生成预算的选点仍拒答 85%（超出 −0.03），强度 4.77 时拒答 14%、披露率高出 Oracle +0.48*；forget-5 的两个开闸更新让它自己的 retain 生成降 11.6 和 9.4 个点；第十二轮：不改权重，只把问题换成三种改写，说出正确值的比例就比 Oracle 多 +0.20*（“Tell me …” 下拒答 100% → 28%）</td></tr>
+      <tr><td class="name">NPO</td><td>对训练问法的压制，认得出人；forget-5 上更新前 retain 已比 Full 低 13 个点（forget_10 上只低 1.4 个点，通过 release gate）；对任何遗忘人物的图像都压制答案的开头，压制在最后 3 层形成</td><td>原始问法 +0.08（不显著），换提示 +0.21*；姓名题 +0.57*；主口径 10 个点预算下 +0.15*（Holm 校正后显著），但由更新带来的部分校正后不显著；答案第一个词元的对数概率 −35（Oracle −0.3）；第 20–28 层与身份绑定的优势 +0.118*，去掉答案模板后仍在（另外 10 人 +0.25*）；输出层压低的是共有的答案开头（−75 nats），给定开头后属性值读数与 Oracle 持平；在另外 50 个人物（forget_10）上，第 20–28 层高出单个 Oracle +0.61*、身份绑定 +0.49*，开头被压低 47 nats，输出层属性值读数高于 Oracle（+0.80*），一个无关小更新后十选一 0.39 → 0.72、生成答对 0.07 → 0.46（Oracle 0.28 和 0.14）；第九轮：更新前对遗忘人物的回答 99% 是无效输出（旧退化规则只标出 18%）；更新后披露正确值的比例高出同更新的 Oracle +0.33*，但同一更新让它的 retain 自由生成降 8.0 个点；第十轮：5 个点匹配预算选出的弱更新上高出 +0.18*，三个模型降幅不超过 3.4 个点，但正确值 70% 夹在无效回答里，只算有效回答时 −0.04；第十一轮：第二个训练种子的中后层读数相同（差 −0.008），更新前却高出 Oracle +0.07*、乱码只有 48%，更新后 +0.21*；第十二轮：不改权重、只换问法，种子 42 多取回 +0.09*（“Tell me …” 下乱码 99% → 45%），种子 43 没有检出</td></tr>
       <tr><td class="name">GA-Diff ep2</td><td>认得出人，属性接近 Oracle，个别属性低于 Oracle；更新前 retain 已比 Full 低 29 个点</td><td>姓名题 +0.37*；生日 −0.24*；只看自身 utility 时无关更新后 +0.19*，但那次更新让 Full 和 Oracle 掉 10 和 14 个点；主口径下只剩未校正的 +0.11*（以第二个 Oracle 为锚时 Holm 校正后显著）；第 20–28 层高出 Oracle，去掉答案模板后在另外 10 人上仍成立（+0.19*），但身份绑定的重复只在以种子 42 的 Oracle 为锚时成立</td></tr>
       <tr><td class="name">KL-Min</td><td>更新前最接近 Oracle；更新前 retain 已比 Full 低 26 个点</td><td>更新前 −0.04（不显著）；只看自身 utility 时 lr 1e-4 × 20 步后 +0.20*，但同一更新让 Full 和 Oracle 降 22 和 26 个点；主口径下 −0.02；去掉答案模板后，第 20–28 层只在发现人物上高出 Oracle（+0.20*），集中在正确答案更长的题目</td></tr>
       <tr><td class="name">GA-Diff ep10</td><td>模型被破坏，不算遗忘成功</td><td>生成 100% 是乱码；准确率 0.07，低于 Oracle 也低于随机；预算外的更新修复了部分生成，准确率只回到 Oracle 水平；中后层的身份绑定为负，两组人物都显著</td></tr>
@@ -1486,6 +1569,8 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
         <li>释放对代价的曲线由累积学习率决定：超出比 retain 生成代价先起来，代价对遗忘模型、Full、Oracle 相近。</li>
         <li>NPO 在 forget_10 上的中后层残留和身份绑定、更新后的生成释放，在两个 Oracle 种子和两个 NPO 训练种子下都成立。</li>
         <li>同一配方只换种子训练的两个 NPO，更新前的输出行为差别很大（乱码 99% 对 48%），中后层读数几乎相同。</li>
+        <li>在 forget_10 上，不改任何权重、只把问题换成三种固定改写，IDK 说出正确值的比例比 Oracle 多 +0.20*，NPO 的一个训练种子多 +0.09*；这部分与身份照片绑定（自动标签，暂定）。</li>
+        <li>第十二轮的 CLEAR 没有通过事先规定的适配检查：用我们的配方微调后，Full 和 Oracle 的真实名人识别都降了 11–13 个点。</li>
       </ul>
     </div>
     <div>
@@ -1530,6 +1615,10 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
         <li>第六轮的 forget-5 开闸更新“在 5 个点预算内”，而不说明只是识别预算。加上生成约束，只在 10 个点、按点估计可行。</li>
         <li>NPO 更新前的输出行为（乱码比例、低于 Oracle）是 NPO 这种方法的特点。它在两个训练种子之间差别很大。</li>
         <li>自动标签是准确的，或语言模型的那次阅读算人工复核。</li>
+        <li>在 CLEAR 上复现了，或没有复现 MLLMU 的发现。第十二轮没有在 CLEAR 上检验遗忘。</li>
+        <li>改写问法“恢复”了知识，或 OCCG 衡量了保留了多少知识。它只是三种固定改写下的下界。</li>
+        <li>NPO 这种方法对问法改写敏感。两个训练种子不一致。</li>
+        <li>IDK 把知识“完整地”保留在拒答之后。第十二轮事先定下的措辞不允许这样写。</li>
         <li>这些结果代表所有多模态大模型或所有遗忘方法。</li>
       </ul>
     </div>
@@ -1561,12 +1650,14 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
     <li><b>第九轮只审计了一个更新、一个设定。</b>没有不同更新强度下“释放对代价”的曲线，所以不知道更温和的更新能否在 5 个点的生成预算内释放。审计的是 NPO；IDK 那次开闸更新的生成效用没有审计，它的“10 个点预算”只指十选一。40 个测试人物以前分析过，forget_10 仍只有一个 Oracle 种子和一个训练种子。披露率按英文匹配规则计算，NPO 更新前的乱码回答里约 38% 含中日韩文字，用其他语言写出的值没有计入。第十轮补了 10 个更新的曲线和 IDK 的生成审计；网格在 IDK 拒答崩塌的强度区间（2.45 到 4.77）没有点，“有效回答”的分解是事后描述。</li>
     <li><b>论文主结果表里两种统计口径并存。</b>第三到第七轮按题加权，第八、九轮先按人物平均；旧数字没有重新聚合，表里逐行标出。</li>
     <li><b>第十轮的更新只在 10 个验证人物上选，第十一轮的复核没有重新选点。</b>第十轮的选点用的是种子 42 的 NPO 和 Oracle；对第二个 NPO 种子，“只看自身、5 个点”的那个选点并不在 5 个点内。两轮的 40 个测试人物都以前分析过。</li>
+    <li><b>第十二轮的 CLEAR 部分没有遗忘结论。</b>适配检查没有通过：真实名人识别的下降超过 5 个点的界限；第九轮的无效规则不适用于 CLEAR 的长描述（第十三轮已换成加入 CLEAR 文本词汇的版本，在读输出之前冻结）。第十三轮按官方配方重做，遗忘方法仍用 MLLMU 上的配方。</li>
+    <li><b>第十二轮的问法改写只有三种固定措辞，标签是自动规则。</b>主检验是三种改写的平均；单一改写和“任一改写”只作描述。40 个测试人物以前分析过，不是盲测。</li>
   </ul>
 </section>
 
 <section>
   <h2>等待决定的事</h2>
-  <p class="col">十一轮都已完成，现在停下等指令，没有自动扩展到其他划分、方法或模型。原来列在这里的“用不含模板的读数复核另外四种方法”和“训练 Qwen 的 Oracle 的第二个种子”已在第七轮完成；“把其他方法扩展到 forget_10”在第八轮只做了 NPO；“更新强度曲线”“IDK 开闸更新的生成效用审计”和“forget_10 的第二个 Oracle 种子和 NPO 训练种子”已在第十、十一轮完成。</p>
+  <p class="col">十二轮都已完成；按你的指示，第十三轮（CLEAR 按官方配方重做）正在进行，完成后停下。没有自动扩展到其他划分、方法或模型。原来列在这里的“用不含模板的读数复核另外四种方法”和“训练 Qwen 的 Oracle 的第二个种子”已在第七轮完成；“把其他方法扩展到 forget_10”在第八轮只做了 NPO；“更新强度曲线”“IDK 开闸更新的生成效用审计”和“forget_10 的第二个 Oracle 种子和 NPO 训练种子”已在第十、十一轮完成。</p>
   <ol class="col">
     <li><b>UID 是否换一个随更新变化的基线。</b>现在的 UID 只比 PUR 少一个与更新无关的常数，按 UID 选和按 PUR 选必然是同一个检查点。一个可选的基线是同一更新下 Full 与 Oracle 的差距。</li>
     <li><b>是否为 forget_10 上 T2 不成立做一个事先登记的新对照。</b>在 retain 人物上做同样的“只换 Oracle 第 1 层的文本位置”，看正常回答是否也被打乱，用来区分“去掉了触发信号”和“IDK 对另一条训练线的状态反应不同”。</li>
@@ -1581,17 +1672,41 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
         <li><b>C5：</b>要加上第二个 NPO 种子的数字，并写明更新强度曲线和“有效回答”的限定。</li>
         <li><b>C3：</b>在 forget-5 上引用的那个更新在生成约束下连 10 个点也不可行，可以改引第六轮的重选，并写明“10 个点、点估计”。</li>
       </ul></li>
+    <li><b>冻结的论文结论是否按第十二轮修订。</b>建议在服务器上的 <code>paper_claims_delta.md</code>：新增 C7（冻结权重下的问法敏感性，只在 forget_10 上）；C3 去掉“完整”；C5 的“更新前低于 Oracle”只在原问题下成立；CLEAR 只写进局限。</li>
     <li><b>是否在 forget_10 上也做三种攻击对照</b>，或者给 TRACEBREAK-MM 换层段、秩和学习率范围。</li>
     <li><b>是否测更温和的更新</b>：更大的无关数据、更多步、更小的学习率，看 KL-Min 和 GA-Diff ep2 在口径 B 下是否仍然不恢复。</li>
     <li><b>是否把其他方法扩展到 forget_10。</b>MLLMU-Bench 的 s1–s4 与 s0 是同样的 25 个人物和同样的模型，换划分不是独立的重复；真正的新人物在 forget_10，目前为它训练了 IDK、NPO 和 Oracle；GA-Diff 和 KL-Min 还没有。</li>
     <li><b>是否做各遗忘模型的种子重训。</b>目前每个遗忘模型都只有一个种子。</li>
-    <li><b>人工复核。</b>第九轮的 313 条盲化回答等两位标注者用<a href="annotate/">标注工具</a>完成，第十轮的 451 条复核包还在服务器上；是否对 NPO 更新前的 438 条乱码回答加抽，这需要能读中文和日文的标注者；第二轮的 162 条抽样仍未复核。</li>
+    <li><b>人工复核。</b>第九轮的 313 条盲化回答等两位标注者用<a href="annotate/">标注工具</a>完成，第十轮的 451 条和第十二轮的 364 条复核包还在服务器上；是否对 NPO 更新前的 438 条乱码回答加抽，这需要能读中文和日文的标注者；第二轮的 162 条抽样仍未复核。</li>
     <li><b>Qwen 的其余后续：</b>按 Qwen 能读出已知人物知识的深度重新定义层带，或改用 tuned lens（都要先写规则）；其他遗忘方法和 steering、patching 都还没有在 Qwen 上做。开闸检查点上的逐层读数已在第七轮补做。</li>
-    <li><b>是否把第十轮的复核包（451 条）放进标注工具。</b>它包括 NPO 在弱更新下“说出正确值但被判无效”的回答，第 37 条的读法取决于它。</li>
+    <li><b>是否把第十轮（451 条）和第十二轮（364 条）的复核包放进标注工具。</b>第十轮的包括 NPO 在弱更新下“说出正确值但被判无效”的回答，第 37 条的读法取决于它；第十二轮的包括 IDK、NPO 在改写问法下的回答，以及 CLEAR 上被判无效的通顺描述。</li>
     <li><b>是否在 IDK 拒答崩塌的强度区间（2.45 到 4.77）加密网格，或训练 IDK 的第二个种子。</b>现在不知道开关的确切位置和那里的代价。</li>
     <li><b>是否训练第三个 NPO 训练种子。</b>两个种子在更新前的输出行为差别很大，第三个种子能说明哪一种更常见。</li>
     <li><b>是否把第三到第七轮要进主表的数字改成先按人物平均。</b>现在主结果表里两种口径并存。</li>
   </ol>
+</section>
+
+<section>
+  <h2>第十二轮的图</h2>
+  <p class="note">图内文字是英文。原图在 <code>~/MMU/runs/round12_clear_cues/figures/</code>，另有 PDF。原计划的两张 CLEAR 图（静态读数、两个更新对 retain 生成的代价）没有真实数据，所以没有画。</p>
+  <figure>
+    <div class="frame"><img src="assets/r12_clear_adaptation.png" alt="三个面板：a 验证人物上 Full、Oracle、换照片后的 Full 和 base 说出本人名字的比例；b Full 和 Oracle 在遗忘与 retain 回答上被判无效的比例，冻结规则与去掉 oov 原因两种；c 真实名人识别和 real_world 的准确率与界限" loading="lazy"></div>
+    <figcaption><b>CLEAR 的适配检查。</b>
+      <ul>
+        <li><b>a：</b>4 个验证人物，原问题加本人照片；大标记是按人物平均，小点是每个人物。Full 全部说对，Oracle 一个也没说出，换照片后 Full 不说本人名字。</li>
+        <li><b>b：</b>被判无效的比例。实心是冻结的第九轮规则（决定 A4），斜线是去掉 oov 原因后的比例（只作描述），虚线是 10% 的界限。</li>
+        <li><b>c：</b>真实名人识别和 real_world 的准确率，虚线是 base 减 5 个点的界限。</li>
+      </ul>
+    </figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/r12_cues.png" alt="两个面板：a 六个模型在原问题和三种改写平均下说出正确值的比例，用箭头连接；b NPO 两个种子、IDK 和 Full 的 OCCG、95% 区间和 Holm 判定" loading="lazy"></div>
+    <figcaption><b>forget_10 上不改权重、只换问法。</b>a：短竖线是原问题，标记是三种改写的平均。b：Oracle 校准的问法增益，横线是 95% 区间，右侧是 Holm 校正后的 p 和判定。40 个测试人物，自动标签。</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/r12_cue_composition.png" alt="两个面板，每个模型每种问法一条堆叠横条：说出正确值、拒答、无效输出、其他回答；a 本人照片，b 换成另一人的照片" loading="lazy"></div>
+    <figcaption><b>四种问法下回答变成了什么。</b>每条横条是一个模型在一种问法下的回答构成（按人物平均）：说出正确值、拒答、无效、其他。Q0 是原问题，Q1 是换说法的问句，Q2 是 “Tell me …” 祈使句，Q3 是问“照片里这个人”的问句。IDK 的拒答和 NPO 种子 42 的乱码在 Q2 下大幅减少；换成另一人的照片后几乎没有正确值。</figcaption>
+  </figure>
 </section>
 
 <section>
@@ -1884,12 +1999,14 @@ table.r9 th { white-space: normal; } table.r9 td:nth-child(n+2), table.r9 th:nth
       <tr><td class="name">第九轮</td><td><code>~/MMU/runs/round9_generation_utility/</code></td><td><code>report.md</code>；规则在 <code>preregister.md</code>，偏差在 <code>deviations.md</code>；逐题标签在 <code>generation_per_item.jsonl</code>，retain 效用在 <code>retain_generation_utility.csv</code>，释放在 <code>forget_generation_release.csv</code>，可行性在 <code>joint_feasibility.csv</code>；人工复核包在 <code>human_review/</code>；论文冻结文件是 <code>paper_main_results.csv</code>、<code>paper_claims_ledger.csv</code>、<code>paper_metric_specification.md</code>；图在 <code>figures/</code></td></tr>
       <tr><td class="name">第十轮</td><td><code>~/MMU/runs/round10_update_curve/</code></td><td><code>report.md</code>；规则在 <code>preregister.md</code>，偏差在 <code>deviations.md</code>；选点在 <code>selection.json</code>，曲线在 <code>curve.csv</code>，检验在 <code>selected_tests.csv</code>，forget-5 审计在 <code>forget5_idk_generation_audit.csv</code>，事后描述在 <code>posthoc/</code>，第二个人工复核包在 <code>human_review_2/</code>，图在 <code>figures/</code></td></tr>
       <tr><td class="name">第十一轮</td><td><code>~/MMU/runs/round11_f10_seeds/</code></td><td><code>report.md</code>；规则在 <code>preregister.md</code>，偏差在 <code>deviations.md</code>；release 表在 <code>release_seed43.json</code>，噪声底在 <code>oracle_seed_noise_floor.csv</code>，三锚点复核在 <code>reanchor.csv</code>，两个 NPO 种子的对照在 <code>npo_seed_replication.csv</code>，事后描述在 <code>posthoc/</code>，图在 <code>figures/</code></td></tr>
+      <tr><td class="name">第十二轮</td><td><code>~/MMU/runs/round12_clear_cues/</code></td><td><code>round12_report.md</code>；规则在 <code>preregistration.md</code>、<code>analysis_plan.md</code>、<code>metric_specification.md</code>，偏差在 <code>deviations.md</code>；CLEAR 适配在 <code>adaptation/</code>，问法改写的结果在 <code>cue/mllmu/results.csv</code>，检验族在 <code>families.csv</code>，逐条目表在 <code>tables/</code>，复核包在 <code>human_review_r12/</code>，论文改动建议在 <code>paper_claims_delta.md</code>，图在 <code>figures/</code></td></tr>
+      <tr><td class="name">第十三轮（进行中）</td><td><code>~/MMU/runs/round13_clear_official/</code></td><td>规则在 <code>preregistration.md</code>（2026-11-27 06:52 UTC 冻结），偏差在 <code>deviations.md</code></td></tr>
     </tbody>
   </table></div>
-  <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>，第四轮是 <code>gate_*.py</code>，第四轮补充是 <code>hsm_*.py</code>，第五轮是 <code>world_f10.py</code> 和 <code>gate10_*.py</code>（复现）、<code>oseed_*.py</code>（Oracle 种子）、<code>tb_*.py</code> 和 <code>atk_*.py</code>（攻击），第六轮是 <code>oseed3_*.py</code>（Oracle 种子）和 <code>qw_*.py</code>（Qwen），第七轮是 <code>r7_*.py</code>，第八轮是 <code>r8_*.py</code>，第九轮是 <code>r9_*.py</code>，第十轮是 <code>r10_*.py</code>，第十一轮是 <code>r11_*.py</code>。</p>
+  <p class="note">代码在 <code>~/MMU/src/</code>：第一轮是 <code>ctrl_*.py</code>，第二轮是 <code>cot_*.py</code>，第三轮是 <code>ur_*.py</code>，第四轮是 <code>gate_*.py</code>，第四轮补充是 <code>hsm_*.py</code>，第五轮是 <code>world_f10.py</code> 和 <code>gate10_*.py</code>（复现）、<code>oseed_*.py</code>（Oracle 种子）、<code>tb_*.py</code> 和 <code>atk_*.py</code>（攻击），第六轮是 <code>oseed3_*.py</code>（Oracle 种子）和 <code>qw_*.py</code>（Qwen），第七轮是 <code>r7_*.py</code>，第八轮是 <code>r8_*.py</code>，第九轮是 <code>r9_*.py</code>，第十轮是 <code>r10_*.py</code>，第十一轮是 <code>r11_*.py</code>，第十二轮是 <code>r12_*.py</code>，第十三轮是 <code>r13_*.py</code>。</p>
 </section>
 
-<footer>这个页面是静态快照，最后一次更新在第十一轮完成之后（2026-11-26）。</footer>
+<footer>这个页面是静态快照，最后一次更新在第十二轮完成之后（2026-11-27）。</footer>
 
 </div>
 <script>
@@ -2231,6 +2348,16 @@ function tracks(id, cfg) {
     series: [{ name: "NPO 种子 42", cls: "s1" }, { name: "NPO 种子 43", cls: "hollow" }],
     rows: gen11.map(function (r) { return { label: r[0], sub: r[1], link: [r[2], r[3]], pts: [{ s: 1, v: r[3], sig: 1 }, { s: 0, v: r[2], sig: 1 }],
       vals: "种子 42 " + sval(r[2]) + "* · 种子 43 " + sval(r[3]) + "*" }; }) });
+
+  /* round 12: frozen-weight cue task on forget_10 (40 test persons), Oracle-calibrated cue gain (mean of the two oracle seeds),
+     own image with its 95% interval, swapped image as a second marker; * = Holm over the six family-B tests */
+  var occg = [["IDK", "", [0.195, 0.163, 0.225], 0.031, 1], ["NPO 种子 42", "", [0.092, 0.058, 0.127], 0.028, 1],
+              ["NPO 种子 43", "", [0.001, -0.038, 0.040], 0.023, 0], ["Full", "只作描述", [-0.233, -0.273, -0.193], 0.006, 0]];
+  tracks("c28", { min: -0.3, max: 0.3, ticks: [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3], tickfmt: sgn, fmt: sval, refs: [0],
+    series: [{ name: "本人照片", cls: "s1" }, { name: "另一人的照片", cls: "hollow" }],
+    rows: occg.map(function (r) { return { label: r[0], sub: r[1] || null, link: [r[2][1], r[2][2]],
+      pts: [{ s: 1, v: r[3] }, { s: 0, v: r[2][0], sig: r[4] }],
+      vals: "本人照片 " + sval(r[2][0]) + (r[4] ? "*" : "") + "（" + sval(r[2][1]) + " 到 " + sval(r[2][2]) + "）<br>另一人的照片 " + sval(r[3]) }; }) });
 })();
 </script>
 </body>
